@@ -1862,8 +1862,11 @@ async function accSyncPush(force) {
   ACC_PUSHING = true;
   try {
     const au = await accLoadFb(), u = au.currentUser; if (!u) return;
-    const blob = JSON.stringify(accSnapshot());
-    if (blob.length > 590000) return;
+    let snap = accSnapshot(), blob = JSON.stringify(snap);
+    if (blob.length > 590000) {   // too big (long study history): still sync the small things (name, goal, exam, notes) so devices never drift apart
+      Object.keys(snap).forEach(k => { if (k.indexOf('priv:mystats:') === 0 || k === 'blocks') delete snap[k]; });
+      blob = JSON.stringify(snap); if (blob.length > 590000) return;
+    }
     const r = await accCall('sync/put', { idToken: await u.getIdToken(), deviceId: mxqDeviceId(), blob });
     if (r.state === 'ok') ACC_DIRTY = false;
   } catch (e) {} finally { ACC_PUSHING = false; }
@@ -2910,7 +2913,8 @@ function mxqSetName(raw) {
   if (v === cur) return { ok: true, same: true };
   if (mxqNameLocked()) return { ok: false, msg: 'You can change your name again on ' + mxqNameNextStr() };
   lsSet('name', v); lsSet('lb:name', v);
-  if (cur) lsSet('name_at', String(mxqNow()));        // the very first name is free; every change after that starts the 5-day wait
+  if (cur) lsSet('name_at', String(mxqNow()));
+  try { if (MXQ_ACCT) accSyncPush(true); } catch (e) {}   // send the new name to the account at once        // the very first name is free; every change after that starts the 5-day wait
   if (lsGet('lb:on') && navigator.onLine) { lbLast = 0; try { lbSync(true); } catch (e) {} }
   return { ok: true, changed: true };
 }
