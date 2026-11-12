@@ -1,7 +1,7 @@
 {
- "id": "medixella",
- "name": "Medixella",
- "short_name": "Medixella",
+ "id": "medixella-trial",
+ "name": "Medixella Trial",
+ "short_name": "Trial",
  "description": "Medixella Qbank",
  "start_url": "./",
  "scope": "./",
