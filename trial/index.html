@@ -1765,6 +1765,10 @@ document.addEventListener('click', async e => {
   const a = e.target.closest && e.target.closest('[data-acc]'); if (!a) return; e.preventDefault();
   const k = a.getAttribute('data-acc');
   if (k === 'out') { if (confirm('Log out of this device?')) accLogout(); }
+  else if (k === 'outcode') {
+    if (!confirm('Log out of this device? You will be taken to the log-in screen, where you can sign in with Google (or an email link) to get your access.')) return;
+    lsSet('lic', ''); lsSet('ext', ''); lsSet('revoked', ''); MXQ_LIC = null; location.reload();
+  }
   else if (k === 'del') {
     if (!confirm('Delete your Medixella account and the progress saved online? This cannot be undone. (Access you paid for is not refunded.)')) return;
     try { const au = await accLoadFb(), u = au.currentUser; const r = await accCall('delete-me', { idToken: await u.getIdToken() }); if (r.state === 'ok') { try { await u.delete(); } catch (x) {} accLogout(); } else alert('Could not delete now. Try again online.'); } catch (x) { alert('Could not delete now. Connect to the internet and try again.'); }
@@ -3009,7 +3013,7 @@ function homeHTML() {
   html += `<div class="credit-foot"><img src="${MARK_URI}" alt=""><div>Medixella Qbank<br><small style="opacity:.6">Version 3 &middot; updated 12 Nov 2026</small></div></div>`;
   html += contactHTML();
   html += accSettingsHTML();
-  if (MXQ_LIC && !MXQ_ACCT) html += `<div class="lic-line">${MXQ_LIC.exp ? 'Access valid until <b>' + mxqNiceDate(MXQ_LIC.expStr) + '</b>' : 'Access: no end date'}</div>`;
+  if (MXQ_LIC && !MXQ_ACCT) html += `<div class="lic-line">${MXQ_LIC.exp ? 'Access valid until <b>' + mxqNiceDate(MXQ_LIC.expStr) + '</b>' : 'Access: no end date'} &middot; <a href="#" data-acc="outcode">Log out</a></div>`;
   html += tabbarHTML('home');
   return html;
 }
