@@ -1604,6 +1604,7 @@ async function mxqStatusCheck(L, did) {
 // ===================== ACCOUNTS (log in, 2 devices, offline lease) =====================
 // Students sign in with Google or an email link (Firebase). The accounts server (Cloudflare) decides
 // whether the account is active, enforces 2 devices (swap once per 2 days) and signs a 7-day offline lease.
+const MX_HOME = 'https://medixella.github.io/qbank/';
 const ACC_API = 'https://medixella-accounts.medixella.workers.dev/api/';
 const ACC_PUB = {"kty":"EC","x":"zq3qmbO1XB7SixZh3efTiF2nh7i-8PwUMBzvIa1ir8o","y":"7FiZJtraoa_Z0AgWQRR9BfYObkrWqqYqGL7ZD0lDI-k","crv":"P-256"};
 const FB_CFG = { apiKey: FB.key, authDomain: FB.pid + '.firebaseapp.com', projectId: FB.pid };
@@ -1693,7 +1694,7 @@ async function accHandleEmailLink() {
 }
 function accLogout() {
   accClear(); lsSet('aemail', '');
-  accLoadFb().then(a => a.signOut()).catch(() => {}).finally(() => { MXQ_ACCT = null; MXQ_ACCT_L = null; MXQ_DATA_READY = false; location.reload(); });
+  accLoadFb().then(a => a.signOut()).catch(() => {}).finally(() => { MXQ_ACCT = null; MXQ_ACCT_L = null; MXQ_DATA_READY = false; location.replace(MX_HOME); });
 }
 function accHexBytes(h) { const o = new Uint8Array(h.length / 2); for (let i = 0; i < o.length; i++) o[i] = parseInt(h.substr(i * 2, 2), 16); return o; }
 function accNice(ms) { return new Date(ms).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }); }
@@ -1769,7 +1770,7 @@ document.addEventListener('click', async e => {
   if (k === 'out') { if (confirm('Log out of this device?')) accLogout(); }
   else if (k === 'outcode') {
     if (!confirm('Log out of this device? You will be taken to the log-in screen, where you can sign in with Google (or an email link) to get your access.')) return;
-    lsSet('lic', ''); lsSet('ext', ''); lsSet('revoked', ''); MXQ_LIC = null; location.reload();
+    lsSet('lic', ''); lsSet('ext', ''); lsSet('revoked', ''); MXQ_LIC = null; location.replace(MX_HOME);
   }
   else if (k === 'del') {
     if (!confirm('Delete your Medixella account and the progress saved online? This cannot be undone. (Access you paid for is not refunded.)')) return;
