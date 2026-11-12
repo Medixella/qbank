@@ -1704,7 +1704,7 @@ function showAccount(st) {
   const email = st.email || lsGet('aemail') || '';
   const wa = 'https://wa.me/923373586048?text=' + encodeURIComponent('Medixella Qbank: my account email is ' + email + '. Here is my payment screenshot. Please activate my account.');
   const igB = `<a class="lock-btn lock-ig" href="${MX_IG}" target="_blank" rel="noopener">Instagram</a><a class="lock-btn lock-wa" href="${wa}" target="_blank" rel="noopener">WhatsApp</a>`;
-  let title = 'Log in to Medixella', sub = 'Use the email you will get your access on.', body = '', foot = '';
+  let title = 'Log in / Sign in to Medixella', sub = 'Use the email you will get your access on.', body = '', foot = '';
   const out = '<div style="margin-top:14px"><button class="lock-btn ghost" id="accOut">Log out</button></div>';
   if (st.state === 'login' || st.state === 'needonline') {
     if (st.state === 'needonline') { title = 'Connect to the internet'; sub = 'Medixella needs to check your account again. Connect once, then tap Try again. After that it works offline.'; body = '<button class="lock-btn main" id="accRetry">Try again</button>' + out; }
@@ -1713,7 +1713,7 @@ function showAccount(st) {
       body = (env.inApp ? '<div class="env-note warn"><b>Google sign-in does not work inside this app.</b> Use the email link below, or open this page in Chrome / Safari.</div>' : '<button class="lock-btn main" id="accGoogle" style="margin-bottom:10px">Continue with Google</button><div class="lock-step" style="text-align:center">or</div>') +
         '<input class="acc-in" id="accEmail" type="email" inputmode="email" autocomplete="email" placeholder="your email" value="' + email.replace(/"/g, '') + '"><button class="lock-btn ' + (env.inApp ? 'main' : 'ghost') + '" id="accLink" style="margin-top:8px">Email me a sign-in link</button>' +
         '<div class="lock-err" id="accErr">' + (err || '') + '</div><div class="lock-sub" id="accSent" style="display:none"></div>' +
-        (lsGet('aemail') ? '' : '<div class="lock-sub" style="margin-top:16px">New here? Try it first, no log-in needed.</div><a class="lock-btn main" href="https://medixella.github.io/qbank/trial/" style="display:block;text-align:center;text-decoration:none;margin-top:6px">Start your 1-day free trial</a><div class="lock-sub" style="font-size:12px;margin-top:6px">One free trial per person. Already paid? Log in above.</div>');
+        (lsGet('aemail') ? '' : '<div class="lock-sub" style="margin-top:16px;text-align:center">New here? Try it first, no log-in needed.</div><a class="lock-btn main" href="https://medixella.github.io/qbank/trial/" style="display:block;box-sizing:border-box;width:100%;max-width:340px;margin:8px auto 0;text-align:center;text-decoration:none">Start your 1-day free trial</a><div class="lock-sub" style="font-size:12px;margin-top:6px">One free trial per person. Already paid? Log in above.</div>');
     }
   } else if (st.state === 'pending') {
     title = 'Account created'; sub = `You are signed in as <b>${email}</b>. Your account is waiting to be activated.`;
