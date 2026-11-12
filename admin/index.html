@@ -2,6 +2,12 @@
 <html lang="en"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex,nofollow">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#C62828">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Medixella Admin">
 <title>Medixella Admin</title>
 <style>
 :root{--navy:#0F2A3F;--navy2:#153B57;--teal:#0E8F84;--acc:#14B8A6;--bg:#F3F6F8;--card:#fff;--ink:#12212e;--mut:#5b6b78;--red:#C0392B;--amb:#B7791F;--line:#dde4ea}
@@ -130,4 +136,5 @@ function handle(b){const e=b.dataset.e,k=b.dataset.a;
   if(k==='note'){const n=prompt('Note for '+e,(DATA.accounts.find(x=>x.email===e)||{}).note||'');if(n!==null)act('note',{email:e,note:n},'Saved')}
   if(k==='del'){if(confirm('PERMANENTLY delete '+e+' and their synced progress? This cannot be undone.'))act('delete',{email:e},'Deleted')}
 }
-</script></body></html>
+</script><script>try{if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js',{scope:'./'}).catch(function(){});}catch(e){}</script>
+</body></html>
