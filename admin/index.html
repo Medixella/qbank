@@ -20,6 +20,7 @@ input,select{font:inherit;padding:8px 10px;border:1px solid var(--line);border-r
 .t-ok{background:#d9f3ef;color:#0b6f66}.t-pend{background:#fdeccd;color:#8a5a0a}.t-stop{background:#f3d9d6;color:#9b2a1d}.t-exp{background:#e6e6e6;color:#444}
 .mut{color:var(--mut);font-size:13px}.dev{font-size:13px;color:var(--mut);margin-top:4px}
 .dev button{padding:2px 8px;font-size:12px;margin-left:6px}
+#lock{position:fixed;inset:0;background:var(--navy);z-index:99;display:none;align-items:center;justify-content:center;padding:20px}#lock .bx{background:#fff;border-radius:16px;padding:22px;max-width:380px;width:100%;text-align:center}#lock h2{margin:0 0 6px;color:var(--navy)}#lock input[type=password]{width:100%;margin:8px 0;padding:12px}#lock button{width:100%;margin-top:8px;padding:12px}#lock .e{color:var(--red);min-height:20px;font-size:14px}
 #msg{position:fixed;left:50%;transform:translateX(-50%);bottom:16px;background:var(--navy);color:#fff;padding:10px 16px;border-radius:10px;display:none;max-width:90%;z-index:9}
 .big{text-align:center;padding:40px 12px}
 table{width:100%;border-collapse:collapse;font-size:13px}td,th{text-align:left;padding:6px 4px;border-top:1px solid var(--line);vertical-align:top}
@@ -27,6 +28,7 @@ table{width:100%;border-collapse:collapse;font-size:13px}td,th{text-align:left;p
 <header><b>Medixella Admin</b><small id="who"></small><span class="sp"></span><button class="g" id="out" style="display:none">Sign out</button></header>
 <main id="m"><div class="big card"><p>Sign in with the admin Google account.</p><button id="in">Sign in with Google</button><p class="mut" id="err"></p></div></main>
 <div id="msg"></div>
+<div id="lock"><div class="bx"><h2 id="lh">Admin lock</h2><p class="mut" id="lp"></p><input id="lpw" type="password" autocomplete="off" placeholder="Password"><input id="lpw2" type="password" autocomplete="off" placeholder="Repeat password" style="display:none"><label id="lfp" class="mut" style="display:none"><input type="checkbox" id="lfpc"> Also unlock with fingerprint / face / screen lock</label><div class="e" id="le"></div><button id="lgo">Unlock</button><button class="g" id="lbio" style="display:none">Use fingerprint</button></div></div>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script>
@@ -39,11 +41,48 @@ async function call(path,body){const u=firebase.auth().currentUser;const idToken
   const r=await fetch(API+'admin/'+path,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(Object.assign({idToken},body||{}))});
   const j=await r.json().catch(()=>({state:'error'}));if(j.state==='forbidden')throw new Error('This Google account is not the admin account.');
   if(j.state!=='ok')throw new Error('Server said: '+j.state+(j.msg?' ('+j.msg+')':''));return j}
+
+// ---------- local lock: password + optional fingerprint (a second gate before anything is shown) ----------
+const LK='mxadm:';const lg=k=>{try{return localStorage.getItem(LK+k)}catch(e){return null}},ls_=(k,v)=>{try{localStorage.setItem(LK+k,v)}catch(e){}};
+const b2h=b=>Array.from(new Uint8Array(b)).map(x=>x.toString(16).padStart(2,'0')).join(''),h2b=h=>Uint8Array.from(h.match(/../g),x=>parseInt(x,16));
+async function pwHash(pw,saltHex){const k=await crypto.subtle.importKey('raw',new TextEncoder().encode(pw),'PBKDF2',false,['deriveBits']);return b2h(await crypto.subtle.deriveBits({name:'PBKDF2',hash:'SHA-256',salt:h2b(saltHex),iterations:250000},k,256))}
+let UNLOCK_RES=null,LAST=Date.now();const UNLOCKED=new Promise(r=>UNLOCK_RES=r);let isLocked=true;
+function showLock(){
+  isLocked=true;DATA=null;const L=$('#lock'),first=!lg('hash');L.style.display='flex';$('#m').style.visibility='hidden';
+  $('#lh').textContent=first?'Create your admin password':'Admin lock';
+  $('#lp').textContent=first?'This protects the page on this device, on top of your Google sign-in. Use at least 8 characters.':'Enter your password to open the admin page.';
+  $('#lpw2').style.display=first?'block':'none';$('#lgo').textContent=first?'Save password':'Unlock';
+  const hasBio=!!lg('cred')&&window.PublicKeyCredential;$('#lbio').style.display=hasBio&&!first?'block':'none';
+  $('#lfp').style.display=first&&window.PublicKeyCredential?'block':'none';$('#le').textContent='';$('#lpw').value='';$('#lpw2').value='';
+  if(hasBio&&!first)setTimeout(bioUnlock,300);
+}
+function openUp(){isLocked=false;LAST=Date.now();$('#lock').style.display='none';$('#m').style.visibility='';if(UNLOCK_RES){UNLOCK_RES();UNLOCK_RES=null}else if(firebase.auth().currentUser){load().catch(e=>toast(e.message))}}
+async function bioUnlock(){try{const id=h2b(lg('cred'));await navigator.credentials.get({publicKey:{challenge:crypto.getRandomValues(new Uint8Array(32)),allowCredentials:[{type:'public-key',id}],userVerification:'required',timeout:60000}});openUp()}catch(e){$('#le').textContent='Fingerprint did not work. Use your password.'}}
+$('#lbio').onclick=bioUnlock;
+$('#lgo').onclick=async()=>{
+  const e=$('#le');e.textContent='';const first=!lg('hash'),pw=$('#lpw').value;
+  if(first){
+    if(pw.length<8){e.textContent='Use at least 8 characters.';return}
+    if(pw!==$('#lpw2').value){e.textContent='The two passwords are different.';return}
+    const salt=b2h(crypto.getRandomValues(new Uint8Array(16)));ls_('salt',salt);ls_('hash',await pwHash(pw,salt));
+    if($('#lfpc').checked){try{const c=await navigator.credentials.create({publicKey:{rp:{name:'Medixella Admin',id:location.hostname},user:{id:crypto.getRandomValues(new Uint8Array(16)),name:'admin',displayName:'Medixella admin'},challenge:crypto.getRandomValues(new Uint8Array(32)),pubKeyCredParams:[{type:'public-key',alg:-7},{type:'public-key',alg:-257}],authenticatorSelection:{authenticatorAttachment:'platform',userVerification:'required',residentKey:'discouraged'},timeout:60000}});ls_('cred',b2h(c.rawId))}catch(x){toast('Fingerprint was not set up. The password still works.')}}
+    openUp();return;
+  }
+  const fails=parseInt(lg('fails')||'0',10),until=parseInt(lg('until')||'0',10);
+  if(Date.now()<until){e.textContent='Too many tries. Wait '+Math.ceil((until-Date.now())/1000)+' seconds.';return}
+  if(await pwHash(pw,lg('salt'))===lg('hash')){ls_('fails','0');openUp()}
+  else{const f=fails+1;ls_('fails',String(f));if(f>=5){ls_('until',String(Date.now()+Math.min(600000,30000*Math.pow(2,f-5))))}e.textContent='Wrong password.'}
+};
+['click','keydown','touchstart'].forEach(ev=>document.addEventListener(ev,()=>{LAST=Date.now()},{passive:true}));
+setInterval(()=>{if(!isLocked&&Date.now()-LAST>5*60000)showLock()},15000);
+document.addEventListener('visibilitychange',()=>{if(document.hidden)HID=Date.now();else if(!isLocked&&Date.now()-HID>2*60000)showLock()});let HID=0;
+showLock();
 $('#in').onclick=()=>firebase.auth().signInWithPopup(new firebase.auth.GoogleAuthProvider()).catch(e=>{$('#err').textContent=e.message});
 $('#out').onclick=()=>firebase.auth().signOut();
 firebase.auth().onAuthStateChanged(async u=>{
   if(!u){$('#out').style.display='none';$('#who').textContent='';return}
   $('#out').style.display='';$('#who').textContent=u.email;
+  await UNLOCKED;
   try{await load()}catch(e){$('#m').innerHTML='<div class="big card"><p><b>'+esc(e.message)+'</b></p><button class="g" onclick="firebase.auth().signOut()">Sign out and try another account</button></div>'}
 });
 async function load(){DATA=await call('list');render()}
