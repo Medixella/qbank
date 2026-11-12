@@ -1711,8 +1711,7 @@ function showAccount(st) {
       const err = lsGet('aerr'); lsSet('aerr', '');
       body = (env.inApp ? '<div class="env-note warn"><b>Google sign-in does not work inside this app.</b> Use the email link below, or open this page in Chrome / Safari.</div>' : '<button class="lock-btn main" id="accGoogle" style="margin-bottom:10px">Continue with Google</button><div class="lock-step" style="text-align:center">or</div>') +
         '<input class="acc-in" id="accEmail" type="email" inputmode="email" autocomplete="email" placeholder="your email" value="' + email.replace(/"/g, '') + '"><button class="lock-btn ' + (env.inApp ? 'main' : 'ghost') + '" id="accLink" style="margin-top:8px">Email me a sign-in link</button>' +
-        '<div class="lock-err" id="accErr">' + (err || '') + '</div><div class="lock-sub" id="accSent" style="display:none"></div>' +
-        '<div style="margin-top:16px"><button class="lock-btn ghost" id="accCode">I have an activation code (old method)</button></div>';
+        '<div class="lock-err" id="accErr">' + (err || '') + '</div><div class="lock-sub" id="accSent" style="display:none"></div>';
     }
   } else if (st.state === 'pending') {
     title = 'Account created'; sub = `You are signed in as <b>${email}</b>. Your account is waiting to be activated.`;
@@ -1734,7 +1733,6 @@ function showAccount(st) {
   const $ = id => document.getElementById(id), err = m => { const e = $('accErr'); if (e) e.textContent = m; };
   const on = (id, f) => { const e = $(id); if (e) e.addEventListener('click', f); };
   on('accOut', accLogout); on('accRetry', () => init());
-  on('accCode', () => showLock({ state: 'none', did: mxqDeviceId() }, {}));
   on('accGoogle', async () => {
     err('');
     try { const a = await accLoadFb(); await a.signInWithPopup(new firebase.auth.GoogleAuthProvider()); init(); }
