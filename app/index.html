@@ -1262,7 +1262,7 @@ async function lbSync(force) {
     const best = Math.max(p.points, parseInt(lsGet('lb:best') || '0', 10)); lsSet('lb:best', String(best));
     const wk = lbWeek(); let w = lbJSON('lb:wk', null);
     if (!w || w.week !== wk) { w = { week: wk, base: parseInt(lsGet('lb:last') || String(best), 10) }; lsSet('lb:wk', JSON.stringify(w)); }
-    const name = (lsGet('lb:name') || mxqName() || 'Student').slice(0, 24);
+    const name = (mxqName() || lsGet('lb:name') || 'Student').slice(0, 24);
     const H = { 'content-type': 'application/json', 'Authorization': 'Bearer ' + a.id };
     const now = Date.now();
     let r = await fetch(FS + '/leaderboard/' + a.uid + '?key=' + FB.key, { method: 'PATCH', headers: H, body: JSON.stringify({ fields: { name: { stringValue: name }, points: lbInt(best), answered: lbInt(p.answered), correct: lbInt(p.correct), updated: lbInt(now) } }) });
@@ -1319,7 +1319,7 @@ function leadersHTML() {
   const best = parseInt(lsGet('lb:best') || '0', 10), w = lbJSON('lb:wk', null), wp = w && w.week === lbWeek() ? best - w.base : 0, m = lbJSON('lb:mo', null), mp = m && m.month === lbMonth() ? best - m.base : 0;
   const list = md === 'week' ? lbState.weekTop : md === 'month' ? lbState.monthTop : lbState.top;
   const rank = md === 'week' ? lbState.rankWeek : md === 'month' ? lbState.rankMonth : lbState.rankAll, myPts = md === 'week' ? wp : md === 'month' ? mp : best;
-  const myName = (lsGet('lb:name') || mxqName() || 'Student');
+  const myName = (mxqName() || lsGet('lb:name') || 'Student');
   const sub = r => md === 'all' && r.answered ? Math.round(100 * r.correct / r.answered) + '% accuracy &bull; ' + r.answered + ' questions' : (md === 'all' ? '' : 'earned ' + (md === 'week' ? 'this week' : 'this month'));
   const svgCal = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>';
   let h = `<div class="lb2"><div class="lb2-head"><h2>&#127942; Leaderboard</h2><p>Track your progress, compare scores, and climb the rankings with every practice session.</p></div>`;
@@ -1377,7 +1377,7 @@ const STORAGE_AVAILABLE = typeof window !== 'undefined' && !!window.storage
 const memoryStore = {};
 
 function lsGet(k){ try { return window.localStorage.getItem(LSP + k); } catch (e) { return null; } }
-const ACC_SYNC_RE = /^(priv:mystats:|blocks$|hl:|ln:|goal$|exam$)/;
+const ACC_SYNC_RE = /^(priv:mystats:|blocks$|hl:|ln:|goal$|exam$|name$|name_at$|lb:name$|uni$|year$)/;
 let ACC_DIRTY_HOOK = null;
 function lsSet(k,v){ try { window.localStorage.setItem(LSP + k, v); if (ACC_SYNC_RE.test(k)) { window.localStorage.setItem(LSP + '_st:' + k, String(Date.now())); if (ACC_DIRTY_HOOK) ACC_DIRTY_HOOK(); } return true; } catch (e) { return false; } }
 
@@ -2143,7 +2143,7 @@ async function init() {
   MXQ_LIC = lic.L;
   if (!TRIAL) {
     if (!lsGet('lb:on')) lsSet('lb:on', '1');
-    if (!lsGet('lb:name') && mxqName()) lsSet('lb:name', mxqName().slice(0, 24));
+    if (mxqName() && lsGet('lb:name') !== mxqName().slice(0, 24)) lsSet('lb:name', mxqName().slice(0, 24));
     mxqStatusCheck(lic.L, lic.did).then(r => { if (r && r.rev && currentScreen !== 'quiz') init(); });
   }
   if (!MXQ_DATA_READY) {
@@ -2893,13 +2893,28 @@ function attachTodayEvents() {
 
 
 function mxqName() { const n = (lsGet('name') || '').trim(); return n; }
+// One name everywhere (Home, Settings, Leaderboard). It can be changed once every 5 days.
+const NAME_WAIT_MS = 5 * 24 * 3600 * 1000;
+function mxqNameNextAt() { const t = parseInt(lsGet('name_at') || '0', 10) || 0; return t ? t + NAME_WAIT_MS : 0; }
+function mxqNameLocked() { return !!mxqName() && mxqNameNextAt() > mxqNow(); }
+function mxqNameNextStr() { return new Date(mxqNameNextAt()).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }); }
+function mxqSetName(raw) {
+  const v = String(raw || '').trim().replace(/\s+/g, ' ').replace(/^(dr\.?\s+)/i, 'Dr. ').slice(0, 24), cur = mxqName();
+  if (!v) return { ok: false, msg: 'Please type your name' };
+  if (v === cur) return { ok: true, same: true };
+  if (mxqNameLocked()) return { ok: false, msg: 'You can change your name again on ' + mxqNameNextStr() };
+  lsSet('name', v); lsSet('lb:name', v);
+  if (cur) lsSet('name_at', String(mxqNow()));        // the very first name is free; every change after that starts the 5-day wait
+  if (lsGet('lb:on') && navigator.onLine) { lbLast = 0; try { lbSync(true); } catch (e) {} }
+  return { ok: true, changed: true };
+}
 function mxqNameGate() {
   if (mxqName()) return;
   if (document.getElementById('nameGate')) return;
   const d = document.createElement('div'); d.id = 'nameGate'; d.className = 'name-gate';
   d.innerHTML = `<div class="ng-card"><div class="ng-orn">&#10022;</div><h2>Welcome to Medixella</h2><p>What should we call you?</p><input id="ngIn" type="text" maxlength="24" placeholder="Your name" autocomplete="off"><button id="ngGo" class="btn-primary">Continue</button><div class="ng-note">Your name shows on the Leaderboard.</div></div>`;
   document.body.appendChild(d);
-  const fin = v => { lsSet('name', v); lsSet('lb:name', v.slice(0, 24)); lsSet('lb:on', '1'); d.remove(); render(); try { lbSync(true); } catch (e) {} };
+  const fin = v => { mxqSetName(v); lsSet('lb:on', '1'); d.remove(); render(); try { lbSync(true); } catch (e) {} };
   d.querySelector('#ngGo').addEventListener('click', () => { const v = d.querySelector('#ngIn').value.trim(); if (!v) { d.querySelector('#ngIn').focus(); return; } fin(v.replace(/^(dr\.?\s+)/i, 'Dr. ')); });
   d.querySelector('#ngIn').addEventListener('keydown', e => { if (e.key === 'Enter') d.querySelector('#ngGo').click(); });
   setTimeout(() => { try { d.querySelector('#ngIn').focus(); } catch (e) {} }, 150);
@@ -3054,7 +3069,7 @@ function lumhsCardsHTML(stats) {
 function attachHomeEvents() {
   mxqNameGate();
   attachTodayEvents();
-  const h1 = document.querySelector('.mx-welcome h1'); if (h1) h1.addEventListener('click', () => { const v = prompt('Your name', mxqName()); if (v !== null) { lsSet('name', v.trim()); render(); } });
+  const h1 = document.querySelector('.mx-welcome h1'); if (h1) h1.addEventListener('click', () => { if (mxqNameLocked()) { mxqToast('You can change your name again on ' + mxqNameNextStr()); return; } const v = prompt('Your name', mxqName()); if (v !== null) { const r = mxqSetName(v); if (!r.ok) mxqToast(r.msg); render(); } });
   const nx = document.getElementById('noteX'); if (nx) nx.addEventListener('click', () => { lsSet('hidenote', '1'); render(); });
   const ln = document.getElementById('licNew'); if (ln) ln.addEventListener('click', () => showLock(mxqCheck(), { update: true }));
   document.querySelectorAll('[data-del]').forEach(el => el.addEventListener('click', e => {
@@ -4288,9 +4303,9 @@ function settingsHTML() {
   return `<div class="topbar"><div class="brand">Settings</div></div>
   <div class="mxs-wrap">
     <div class="mxs-acc ${mxsOpen === 'info' ? 'open' : ''}" data-acc="info"><button class="mxs-ah" data-acc-t="info"><span class="ai">&#128100;</span><span class="at"><b>My info</b><small>Name, exam date and daily goal</small></span><span class="chev">&#8250;</span></button><div class="mxs-ab">
-    <div class="mxs-card"><div class="mxs-sub">Your name shows on Home and on the Leaderboard. Change it any time.</div>
+    <div class="mxs-card"><div class="mxs-sub">Your name shows on Home and on the Leaderboard. You can change it once every 5 days.</div>
       <div class="mi-top"><div class="lb2-av big" id="miAv">${escapeHtml(lbInit(mxqName() || '?'))}</div><div class="mi-st"><b>${escapeHtml(mxqName() || 'No name yet')}</b><span>${an} answered &middot; ${an ? Math.round(100 * cr / an) : 0}% accuracy</span></div></div>
-      <label class="mi-f"><span>Name</span><input id="miName" maxlength="24" value="${escapeHtml(mxqName())}" placeholder="Your name"></label>
+      <label class="mi-f"><span>Name</span><input id="miName" maxlength="24" value="${escapeHtml(mxqName())}" placeholder="Your name" ${mxqNameLocked() ? 'readonly style="opacity:.6"' : ''}></label>${mxqNameLocked() ? `<div class="mxs-sub" style="margin:-4px 0 8px">You changed your name recently. You can change it again on <b>${mxqNameNextStr()}</b>.</div>` : ''}
       <label class="mi-f"><span>University / college (optional)</span><input id="miUni" maxlength="60" value="${escapeHtml(lsGet('uni') || '')}" placeholder="Your university"></label>
       <label class="mi-f"><span>Year / class (optional)</span><input id="miYear" maxlength="30" value="${escapeHtml(lsGet('year') || '')}" placeholder="e.g. Final year MBBS"></label>
       <div class="mi-f"><span>Exam date</span><button class="mi-date" id="miExam">&#128197; ${exTxt}</button></div>
@@ -4322,13 +4337,11 @@ function attachSettingsEvents() {
   di.addEventListener('input', () => { MXS.dim = +di.value; document.getElementById('mxsDv').textContent = MXS.dim + '%'; mxsApply(); });
   di.addEventListener('change', mxsSave);
   document.getElementById('miSave').addEventListener('click', () => {
-    let v = (document.getElementById('miName').value || '').trim().replace(/\s+/g, ' ');
-    if (!v) { mxqToast('Please type your name'); return; }
-    v = v.replace(/^(dr\.?\s+)/i, 'Dr. ').slice(0, 24);
-    lsSet('name', v); lsSet('lb:name', v);
+    const r = mxqSetName(document.getElementById('miName').value), typed = (document.getElementById('miName').value || '').trim();
+    if (!r.ok && !(mxqNameLocked() && typed === mxqName())) { mxqToast(r.msg); return; }
     lsSet('uni', (document.getElementById('miUni').value || '').trim()); lsSet('year', (document.getElementById('miYear').value || '').trim());
-    if (lsGet('lb:on') && navigator.onLine) { lbLast = 0; lbSync(true); mxqToast('Saved. Your new name will show on the Leaderboard.'); }
-    else mxqToast(lsGet('lb:on') ? 'Saved. The Leaderboard updates when you are online.' : 'Saved');
+    if (r.changed) mxqToast(lsGet('lb:on') ? (navigator.onLine ? 'Saved. Your new name now shows everywhere, including the Leaderboard.' : 'Saved. The Leaderboard updates when you are online.') : 'Saved');
+    else mxqToast('Saved');
     render();
   });
   document.getElementById('miExam').addEventListener('click', () => mxCal({ value: lsGet('exam') || '', title: 'Your exam date', onSave: v => { lsSet('exam', v); render(); }, onClear: () => { lsSet('exam', ''); render(); } }));
