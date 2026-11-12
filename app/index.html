@@ -4444,9 +4444,17 @@ render = function () {
    localStorage, a cookie and IndexedDB, so clearing one of them is not enough to start again. */
 const TR_MS = 24 * 3600 * 1000, TR_MAX = 50, TR_WA = 'https://wa.me/923373586048?text=' + encodeURIComponent('Hi Medixella, I tried the 1-day free trial of Medixella Qbank and I would like full access.');
 let TR = null, TR_OFF = 0, TR_DEAD = false;
+const TR_YEARS = { '1': 'First Year', '2': 'Second Year', '3': 'Third Year', '4': 'Fourth Year', 'F': 'Final Year' };
+function trYearName() { return (TR && TR.y && TR_YEARS[TR.y]) ? TR_YEARS[TR.y] + ' MBBS' : ''; }
+function trPickYear() {
+  return new Promise(res => {
+    const o = trModal(`<h2>Which year are you in?</h2><p>Choose your year. Your 1-day free trial will unlock <b>${TR_MAX} questions of that year</b>.</p><div class="tr-yrs">${Object.keys(TR_YEARS).map(k => `<button class="tr-yr" data-yr="${k}">${TR_YEARS[k]} MBBS</button>`).join('')}</div><p style="font-size:12.5px;opacity:.85">You can choose only once on this device.</p>`);
+    o.querySelectorAll('[data-yr]').forEach(b => b.addEventListener('click', () => { const y = b.getAttribute('data-yr'); o.remove(); res(y); }));
+  });
+}
 const TR_IG_SVG = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="#fff" stroke="none"/></svg>';
 const TR_WA_SVG = '<svg width="18" height="18" viewBox="0 0 24 24" fill="#fff"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm5.2 14.2c-.2.6-1.3 1.2-1.8 1.2-.5.1-1 .2-3.3-.7-2.8-1.2-4.6-4-4.7-4.2-.1-.2-1.1-1.5-1.1-2.8s.7-2 1-2.3c.2-.3.5-.3.7-.3h.5c.2 0 .4 0 .6.5l.9 2.1c.1.2.1.4 0 .5l-.4.6c-.1.2-.3.3-.1.6.2.3.8 1.3 1.7 2.1 1.2 1 2.1 1.3 2.4 1.5.3.1.5.1.6-.1l.9-1.1c.2-.3.4-.2.6-.1l2 1c.3.1.4.2.5.3.1.2.1.7-.1 1.2z"/></svg>';
-function trBtns() { return `<div class="tr-btns"><a class="lock-btn lock-ig" href="${MX_IG}" target="_blank" rel="noopener">${TR_IG_SVG}Instagram</a><a class="lock-btn lock-wa" href="${TR_WA}" target="_blank" rel="noopener">${TR_WA_SVG}WhatsApp</a></div><div class="tr-btns" style="margin-top:10px"><a class="lock-btn" style="background:#14B8A6;color:#06283A" href="../#access">Get access now</a></div>`; }
+function trBtns() { return `<div class="tr-btns"><a class="lock-btn lock-ig" href="${MX_IG}" target="_blank" rel="noopener">${TR_IG_SVG}Instagram</a><a class="lock-btn lock-wa" href="${TR_WA}" target="_blank" rel="noopener">${TR_WA_SVG}WhatsApp</a></div><div class="tr-btns" style="margin-top:10px"><a class="lock-btn" style="background:#14B8A6;color:#06283A" href="../#access">Create new account</a></div>`; }
 
 // ---- memory of the trial: three places ----
 function trCookieGet() { try { const m = document.cookie.match(/(?:^|; )mxt_tr=([^;]*)/); return m ? JSON.parse(decodeURIComponent(m[1])) : null; } catch (e) { return null; } }
@@ -4475,7 +4483,8 @@ async function trLoad() {
   const v = a.filter(x => x && typeof x.s === 'number' && x.s > 0);
   if (!v.length) return null;
   v.sort((x, y) => x.s - y.s);
-  const m = { s: v[0].s, u: [], p: [], sh: 0, ls: 0, last: 0 };
+  const m = { s: v[0].s, u: [], p: [], sh: 0, ls: 0, last: 0, y: '' };
+  for (const x of v) if (x.y) { m.y = x.y; break; }
   for (const x of v) {
     for (const id of (x.u || [])) if (m.u.indexOf(id) < 0) m.u.push(id);
     if (!m.p.length && x.p && x.p.length) m.p = x.p.slice();
@@ -4512,6 +4521,7 @@ function trCss() {
 .tr-card li b{color:#7ff0dd}
 .tr-btns{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin:14px 0 4px}
 .tr-ok{border:none;border-radius:14px;padding:13px 18px;width:100%;font-size:16px;font-weight:800;color:#fff;background:linear-gradient(90deg,#14b8a6,#0F6E56);cursor:pointer;margin-top:10px}
+.tr-yrs{display:flex;flex-direction:column;gap:10px;margin:16px 0 8px}.tr-yr{border:1.5px solid rgba(166,235,224,.45);background:rgba(255,255,255,.08);color:#fff;border-radius:14px;padding:14px 16px;font-size:16px;font-weight:800;cursor:pointer;text-align:center}.tr-yr:hover,.tr-yr:focus-visible{background:#14b8a6;color:#06283A;outline:none}
 .tr-x{background:none;border:none;color:#a8c3cc;font-size:13px;margin-top:10px;cursor:pointer;text-decoration:underline}
 .tr-strip{margin:10px 16px 0;padding:10px 14px;border-radius:14px;background:linear-gradient(90deg,#fff7df,#fdeec0);border:1px solid #e6c768;color:#5a4300;font-size:13px;line-height:1.45;display:flex;gap:10px;align-items:center}
 .tr-strip b{color:#3f2f00}.tr-strip .tr-s2{opacity:.85}
@@ -4537,7 +4547,8 @@ function trModal(html) {
 }
 function trStartModal() {
   const end = new Date(TR.s + TR_MS).toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' });
-  trModal(`<h2>Your 1-day free trial has started now</h2><p>Welcome to Medixella Qbank. Here is what you get:</p><ul><li><b>24 hours</b> of access, until ${end}</li><li><b>${TR_MAX} questions</b> in total, in LUMHS Qbank or in a Mock test</li><li><b>2 one-page revision sheets</b> (Respiratory and Toxicology) to read online or download</li></ul><p style="font-size:12.5px;opacity:.85">This trial works once on this device.</p><button class="tr-ok" data-trclose="1">Start practising</button>`);
+  const yn = trYearName();
+  trModal(`<h2>Your 1-day free trial starts now</h2><p>${yn ? 'You can solve <b>' + TR_MAX + ' questions of ' + yn + ' only</b>, as per the free-trial rules.' : 'Welcome to Medixella Qbank. Here is what you get:'}</p><ul><li><b>24 hours</b> of access, until ${end}</li><li><b>${TR_MAX} questions</b> ${yn ? 'of ' + yn + ', ' : ''}in LUMHS Qbank or in a Mock test</li><li><b>2 one-page revision sheets</b> (Respiratory and Toxicology) to read online or download</li></ul><p style="font-size:12.5px;opacity:.85">This trial works once on this device.</p><button class="tr-ok" data-trclose="1">Start practising</button>`);
 }
 function trPerksHTML() {
   const q = (window.__TRIAL_FULL__ && window.__TRIAL_FULL__.q) ? window.__TRIAL_FULL__.q.toLocaleString() + '+' : 'Thousands of';
@@ -4599,7 +4610,8 @@ async function trGate() {
   const fresh = !TR;
   if (fresh) await Promise.race([trServerSync(), new Promise(r => setTimeout(r, 3600))]); else trServerSync();
   if (fresh) {
-    TR = { s: trNow(), u: [], p: [], sh: 0, ls: 0, last: 0 };
+    const y = await trPickYear();
+    TR = { s: trNow(), u: [], p: [], sh: 0, ls: 0, last: 0, y: y };
   }
   TR.p = ['resp', 'tox'];
   trSave();
@@ -4619,6 +4631,13 @@ async function trUnlock() {
   const ck = await crypto.subtle.importKey('raw', key, 'AES-GCM', false, ['decrypt']);
   const plain = new Uint8Array(await crypto.subtle.decrypt({ name: 'AES-GCM', iv: buf.slice(4, 16), additionalData: new TextEncoder().encode('MXD1') }, ck, buf.slice(16)));
   const d = JSON.parse(new TextDecoder().decode(await mxqGunzip(plain)));
+  // only the questions of the year the visitor chose stay open; everything else becomes a locked placeholder
+  const code = (TR && TR.y) || 'L';
+  for (const k of Object.keys(d.chunks)) d.chunks[k] = d.chunks[k].map(q => {
+    if (q.locked) return q;
+    if (q.ty && q.ty.indexOf(code) >= 0) { delete q.ty; return q; }
+    return { id: q.id, subject: q.subject, system: q.system, topic: q.topic || q.system, locked: 1, stem: 'Locked question in the free trial', options: {}, correct_letter: '', why_correct: '', why_wrong: {}, take_home: '', source: '', is_new: false };
+  });
   window.__QBANK_CHUNKS__ = d.chunks; window.__FLASHCARDS__ = []; window.__LESSONS__ = []; window.__PDFS__ = d.pdfs || {};
   LESSONS = []; QBANK = []; FLASHCARDS = [];
   MXQ_DATA_READY = true; return 'ok';
@@ -4741,7 +4760,7 @@ if (TRIAL) {
     if (trLeftMs() <= 0) { trSave(); trShowExpired(); return; }
     const l = document.getElementById('trLeft'), q = document.getElementById('trQ');
     if (l) { const m = Math.floor(trLeftMs() / 60000), h = Math.floor(m / 60); l.textContent = (h ? h + ' h ' : '') + (m % 60) + ' min left'; }
-    if (q) q.textContent = trLeftQ() ? trLeftQ() + ' of ' + TR_MAX + ' free questions left' : 'All ' + TR_MAX + ' free questions used. Message us on Instagram or WhatsApp for full access.';
+    if (q) q.textContent = trLeftQ() ? trLeftQ() + ' of ' + TR_MAX + ' free questions left' + (trYearName() ? ' (' + trYearName() + ')' : '') : 'All ' + TR_MAX + ' free questions used. Message us on Instagram or WhatsApp for full access.';
   }
   setInterval(() => { try { trTick(); if (TR && !TR_DEAD && (Date.now() % 600000) < 20000) trSave(); } catch (e) {} }, 20000);
   document.addEventListener('visibilitychange', () => { if (!document.hidden) { try { trServerSync().then(trTick); trTick(); } catch (e) {} } });
