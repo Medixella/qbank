@@ -14,7 +14,7 @@
   var go=function(){location.replace('app/'+q)};
   var rm=function(){return (navigator.serviceWorker&&navigator.serviceWorker.getRegistrations)?navigator.serviceWorker.getRegistrations().then(function(rs){return Promise.all(rs.filter(function(r){return new URL(r.scope).pathname===dir}).map(function(r){return r.unregister()}))}).catch(function(){}):Promise.resolve()};
   var stay=/[?&]stay\b/.test(q);
-  var activated=false;try{activated=!!localStorage.getItem('mxq:lic')}catch(e){}
+  var activated=false;try{activated=!!(localStorage.getItem('mxq:lic')||localStorage.getItem('mxq:alease'))}catch(e){}
   var standalone=(window.matchMedia&&matchMedia('(display-mode: standalone)').matches)||navigator.standalone===true;
   if(!stay&&(activated||standalone)){document.documentElement.style.visibility='hidden';rm().then(go);setTimeout(go,2500)}else{rm()}
 }catch(e){}})();
@@ -129,7 +129,7 @@ footer small{color:#8fa4ae;font-size:14px}
 <div class="hero"><div class="wrap">
   <h1>Practise the questions your exams are made of.</h1>
   <p class="sub">Medixella Qbank gives MBBS students past-paper questions with a clear explanation for every option. Study on your phone or laptop, even offline.</p>
-  <div class="cta"><a class="btn acc lg" href="https://medixella.github.io/qbank/trial/">Start your 1 Day free trial</a><button class="btn glass lg" data-access>Get access now</button></div>
+  <div class="cta"><a class="btn acc lg" href="https://medixella.github.io/qbank/trial/">Start your 1 Day free trial</a><button class="btn glass lg" data-access>Get access now</button><a class="btn line lg" href="https://medixella.github.io/qbank/app/?stay" style="border-color:#8CF3E3;color:#fff">Log in</a></div>
   <div class="note">No sign-up. Opens in your browser. Free trial lasts 24 hours.<br><a href="#" data-install style="color:#8CF3E3;text-decoration:underline;font-weight:600;display:inline-block;margin-top:8px">Already have access? Open the app</a></div>
   <div class="stats"><div><b>9,600+</b><span>Questions</span></div><div><b>Every option</b><span>explained</span></div><div><b>Mock tests</b><span>with your own timer</span></div><div><b>Offline</b><span>once opened</span></div></div>
 </div></div>
@@ -182,10 +182,10 @@ footer small{color:#8fa4ae;font-size:14px}
 <section id="how"><div class="wrap">
   <div class="eyebrow">How to get access</div><h2 class="sec-h">Four simple steps</h2>
   <div class="steps">
-    <div class="step"><h3>Get your device ID</h3><p>Tap "Get access now". Your device ID is shown there.</p></div>
-    <div class="step"><h3>Message us</h3><p>Send your device ID to us on Instagram or WhatsApp and ask how to pay.</p></div>
-    <div class="step"><h3>Pay and send a screenshot</h3><p>Send a screenshot of your payment together with your device ID.</p></div>
-    <div class="step"><h3>Activate</h3><p>We send you an activation code. Open the app, paste it, and you are in.</p></div>
+    <div class="step"><h3>Create your account</h3><p>Tap "Log in", then sign up with Google or an email link.</p></div>
+    <div class="step"><h3>Message us</h3><p>Send the email you signed up with to us on Instagram or WhatsApp and ask how to pay.</p></div>
+    <div class="step"><h3>Pay and send a screenshot</h3><p>Send a screenshot of your payment together with your email.</p></div>
+    <div class="step"><h3>Get activated</h3><p>We activate your account. Open the app, tap "Check again", and you are in. Use it on 2 devices.</p></div>
   </div>
   <div style="margin-top:30px"><button class="btn navy lg" data-access>Get access now</button></div>
 </div></section>
@@ -203,14 +203,13 @@ footer small{color:#8fa4ae;font-size:14px}
   <button class="x" id="mx" aria-label="Close">&times;</button>
   <h2>Get access now</h2>
   <ol>
-    <li><b>Your device ID</b><span>Copy it. The code we make works only on this device and browser.</span>
-      <div class="idbox"><code id="did">----</code><button class="btn line" id="cpid">Copy</button></div>
-      <div class="warn" id="iosw" style="display:none">On iPhone: tap Share, then Add to Home Screen, open Medixella from its new icon, and send the device ID shown there instead.</div></li>
-    <li><b>Message us</b><span>Send the device ID on Instagram or WhatsApp and ask how to pay.</span>
+    <li><b>Create your account</b><span>Open the app and tap <b>Continue with Google</b>, or ask for an email sign-in link. Use the email you want your access on.</span>
+      <div class="row"><a class="btn navy" href="https://medixella.github.io/qbank/app/?stay">Log in or sign up</a></div>
+      <div style="display:none"><code id="did">----</code><button id="cpid">Copy</button><div id="iosw"></div></div></li>
+    <li><b>Message us</b><span>Send the email you signed up with on Instagram or WhatsApp and ask how to pay.</span>
       <div class="row"><a class="btn wa" id="wal" href="#" target="_blank" rel="noopener">WhatsApp</a><a class="btn ig" id="igl" href="https://www.instagram.com/medixella/" target="_blank" rel="noopener">Instagram</a></div></li>
-    <li><b>Pay and send a screenshot</b><span>After paying, send us a screenshot of your payment together with your device ID.</span></li>
-    <li><b>Activate</b><span>We send you an activation code. Open the app and paste it to start.</span>
-      <div class="row"><a class="btn navy" href="https://medixella.github.io/qbank/app/?stay">Open the app</a></div></li>
+    <li><b>Pay and send a screenshot</b><span>After paying, send us a screenshot of your payment together with your email.</span></li>
+    <li><b>Get activated</b><span>We activate your account. Open the app and tap <b>Check again</b>. Your account works on 2 devices and your progress syncs between them.</span></li>
   </ol>
 </div></div>
 
@@ -283,7 +282,7 @@ footer small{color:#8fa4ae;font-size:14px}
   function did(){var d=null;try{d=localStorage.getItem('mxq:did')}catch(e){}if(!d){d=newId();try{localStorage.setItem('mxq:did',d)}catch(e){}}return d}
   var ov=document.getElementById('ov');
   function open(){var d=did();document.getElementById('did').textContent=d;
-    var t='Hi Medixella, I would like full access to Medixella Qbank. My device ID is '+d+'.';
+    var t='Hi Medixella, I would like full access to Medixella Qbank. The email I signed up with is: (type it here). I will send my payment screenshot.';
     document.getElementById('wal').href='https://wa.me/923373586048?text='+encodeURIComponent(t);
     document.getElementById('igl').onclick=function(){try{navigator.clipboard.writeText(t)}catch(e){}};
     document.getElementById('iosw').style.display=/iPhone|iPad|iPod/i.test(navigator.userAgent)?'block':'none';

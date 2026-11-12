@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Medixella Admin</title>
+<style>
+:root{--navy:#0F2A3F;--navy2:#153B57;--teal:#0E8F84;--acc:#14B8A6;--bg:#F3F6F8;--card:#fff;--ink:#12212e;--mut:#5b6b78;--red:#C0392B;--amb:#B7791F;--line:#dde4ea}
+*{box-sizing:border-box}body{margin:0;font-family:system-ui,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--ink)}
+header{background:var(--navy);color:#fff;padding:14px 16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+header b{font-size:18px}header .sp{flex:1}header small{color:#9fc7cf}
+main{max-width:980px;margin:0 auto;padding:14px 12px 60px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:12px}
+button{font:inherit;border:0;border-radius:9px;padding:8px 12px;cursor:pointer;background:var(--teal);color:#fff;font-weight:600}
+button.g{background:#e7eef2;color:var(--navy)}button.r{background:var(--red)}button.a{background:var(--amb)}button:disabled{opacity:.5}
+input,select{font:inherit;padding:8px 10px;border:1px solid var(--line);border-radius:9px;background:#fff;color:var(--ink);max-width:100%}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}.tabs button{background:#e7eef2;color:var(--navy)}.tabs button.on{background:var(--navy);color:#fff}
+.acc{border-top:1px solid var(--line);padding:12px 0}.acc:first-child{border-top:0}
+.em{font-weight:700;word-break:break-all}.tag{display:inline-block;font-size:12px;border-radius:99px;padding:2px 9px;margin-left:6px;font-weight:700}
+.t-ok{background:#d9f3ef;color:#0b6f66}.t-pend{background:#fdeccd;color:#8a5a0a}.t-stop{background:#f3d9d6;color:#9b2a1d}.t-exp{background:#e6e6e6;color:#444}
+.mut{color:var(--mut);font-size:13px}.dev{font-size:13px;color:var(--mut);margin-top:4px}
+.dev button{padding:2px 8px;font-size:12px;margin-left:6px}
+#msg{position:fixed;left:50%;transform:translateX(-50%);bottom:16px;background:var(--navy);color:#fff;padding:10px 16px;border-radius:10px;display:none;max-width:90%;z-index:9}
+.big{text-align:center;padding:40px 12px}
+table{width:100%;border-collapse:collapse;font-size:13px}td,th{text-align:left;padding:6px 4px;border-top:1px solid var(--line);vertical-align:top}
+</style></head><body>
+<header><b>Medixella Admin</b><small id="who"></small><span class="sp"></span><button class="g" id="out" style="display:none">Sign out</button></header>
+<main id="m"><div class="big card"><p>Sign in with the admin Google account.</p><button id="in">Sign in with Google</button><p class="mut" id="err"></p></div></main>
+<div id="msg"></div>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script>
+const API='https://medixella-accounts.medixella.workers.dev/api/';
+firebase.initializeApp({apiKey:'AIzaSyAo9v19hOkf3TbYZ_EdHMUgd6Pdjnp9aAA',authDomain:'medixella-top-students.firebaseapp.com',projectId:'medixella-top-students'});
+const $=s=>document.querySelector(s);let DATA=null,TAB='pending',Q='';
+const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function toast(t){const m=$('#msg');m.textContent=t;m.style.display='block';clearTimeout(toast.t);toast.t=setTimeout(()=>m.style.display='none',3200)}
+async function call(path,body){const u=firebase.auth().currentUser;const idToken=await u.getIdToken();
+  const r=await fetch(API+'admin/'+path,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(Object.assign({idToken},body||{}))});
+  const j=await r.json().catch(()=>({state:'error'}));if(j.state==='forbidden')throw new Error('This Google account is not the admin account.');
+  if(j.state!=='ok')throw new Error('Server said: '+j.state+(j.msg?' ('+j.msg+')':''));return j}
+$('#in').onclick=()=>firebase.auth().signInWithPopup(new firebase.auth.GoogleAuthProvider()).catch(e=>{$('#err').textContent=e.message});
+$('#out').onclick=()=>firebase.auth().signOut();
+firebase.auth().onAuthStateChanged(async u=>{
+  if(!u){$('#out').style.display='none';$('#who').textContent='';return}
+  $('#out').style.display='';$('#who').textContent=u.email;
+  try{await load()}catch(e){$('#m').innerHTML='<div class="big card"><p><b>'+esc(e.message)+'</b></p><button class="g" onclick="firebase.auth().signOut()">Sign out and try another account</button></div>'}
+});
+async function load(){DATA=await call('list');render()}
+const dstr=d=>d?new Date(d+'T00:00:00Z').toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric',timeZone:'UTC'}):'no end date';
+const ago=t=>{if(!t)return'never';const m=Math.round((Date.now()-t)/60000);return m<2?'just now':m<90?m+' min ago':m<2880?Math.round(m/60)+' h ago':Math.round(m/1440)+' days ago'};
+function status(a){if(a.blocked)return['Blocked','t-stop'];if(a.status==='stopped')return['Stopped','t-stop'];if(a.status!=='active')return['Waiting','t-pend'];if(a.exp_day&&DATA.today>a.exp_day)return['Expired','t-exp'];return['Active','t-ok']}
+function render(){
+  const A=DATA.accounts,cnt=k=>A.filter(a=>status(a)[0]===k).length;
+  let h='<div class="card"><div class="row"><b>Add or activate by email</b></div><div class="row" style="margin-top:8px"><input id="ne" type="email" placeholder="student@gmail.com" style="flex:1;min-width:200px"><input id="nd" type="date"><button id="na">Activate</button></div><div class="mut" style="margin-top:6px">Leave the date empty for no end date. If the student signs up later, they are active straight away.</div></div>';
+  h+='<div class="tabs">'+[['pending','Waiting ('+cnt('Waiting')+')'],['active','Active ('+cnt('Active')+')'],['all','All ('+A.length+')'],['flags','Warnings ('+DATA.flags.length+')'],['audit','Log']].map(t=>'<button data-t="'+t[0]+'" class="'+(TAB===t[0]?'on':'')+'">'+t[1]+'</button>').join('')+'</div>';
+  if(TAB==='flags'){h+='<div class="card">'+(DATA.flags.length?'<table><tr><th>When</th><th>Account</th><th>What</th></tr>'+DATA.flags.map(f=>'<tr><td>'+ago(f.ts)+'</td><td>'+esc(f.email)+'</td><td>'+esc(f.kind)+': '+esc(f.detail)+'</td></tr>').join('')+'</table>':'<p class="mut">No warnings.</p>')+'</div>'}
+  else if(TAB==='audit'){h+='<div class="card" id="aud"><p class="mut">Loading…</p></div>'}
+  else{
+    h+='<div class="card"><input id="q" placeholder="Search by email or note" value="'+esc(Q)+'" style="width:100%">';
+    const L=A.filter(a=>(TAB==='all'||(TAB==='pending'?status(a)[0]==='Waiting':status(a)[0]==='Active'))&&(!Q||(a.email+' '+(a.note||'')).toLowerCase().includes(Q.toLowerCase())));
+    h+=L.length?L.map(card).join(''):'<p class="mut" style="margin-top:10px">Nobody here.</p>';h+='</div>';
+  }
+  $('#m').innerHTML=h;
+  $('#na').onclick=()=>act('activate',{email:$('#ne').value.trim(),exp:$('#nd').value||null},'Activated');
+  document.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>{TAB=b.dataset.t;render()});
+  const q=$('#q');if(q)q.oninput=()=>{Q=q.value;const p=q.selectionStart;render();const n=$('#q');n.focus();n.setSelectionRange(p,p)};
+  document.querySelectorAll('[data-a]').forEach(b=>b.onclick=()=>handle(b));
+  if(TAB==='audit')call('audit').then(r=>{$('#aud').innerHTML='<table><tr><th>When</th><th>Action</th><th>Account</th><th>Detail</th></tr>'+r.rows.map(x=>'<tr><td>'+ago(x.ts)+'</td><td>'+esc(x.action)+'</td><td>'+esc(x.target)+'</td><td>'+esc(x.detail)+'</td></tr>').join('')+'</table>'}).catch(e=>toast(e.message));
+}
+function card(a){const s=status(a),u=a.usage;
+  return '<div class="acc"><div><span class="em">'+esc(a.email)+'</span><span class="tag '+s[1]+'">'+s[0]+'</span></div>'+
+  '<div class="mut">'+(a.status==='active'?'Ends: '+dstr(a.exp_day):'Signed up '+ago(a.created))+' · last seen '+ago(a.last_seen)+(u?' · today: '+u.keys+' key fetches':'')+(a.note?' · '+esc(a.note):'')+'</div>'+
+  a.devices.map(d=>'<div class="dev">📱 '+esc(d.name)+' · last used '+ago(d.last)+'<button class="g" data-a="rmdev" data-e="'+esc(a.email)+'" data-d="'+esc(d.id)+'">Remove</button></div>').join('')+
+  '<div class="row" style="margin-top:8px"><input type="date" data-date="'+esc(a.email)+'" value="'+esc(a.exp_day||'')+'">'+
+  '<button data-a="set" data-e="'+esc(a.email)+'">'+(a.status==='active'?'Save end date':'Activate')+'</button>'+
+  '<button class="g" data-a="plus" data-e="'+esc(a.email)+'" data-n="30">+30 days</button>'+
+  '<button class="a" data-a="stop" data-e="'+esc(a.email)+'">Stop</button>'+
+  '<button class="g" data-a="swap" data-e="'+esc(a.email)+'">Reset swap wait</button>'+
+  '<button class="'+(a.blocked?'g':'r')+'" data-a="block" data-e="'+esc(a.email)+'" data-on="'+(a.blocked?0:1)+'">'+(a.blocked?'Unblock':'Block')+'</button>'+
+  '<button class="g" data-a="note" data-e="'+esc(a.email)+'">Note</button>'+
+  '<button class="r" data-a="del" data-e="'+esc(a.email)+'">Delete</button></div></div>'}
+async function act(p,b,ok){try{await call(p,b);toast(ok||'Done');await load()}catch(e){toast(e.message)}}
+function handle(b){const e=b.dataset.e,k=b.dataset.a;
+  if(k==='set'){const d=document.querySelector('[data-date="'+CSS.escape(e)+'"]').value;return act('activate',{email:e,exp:d||null},'Saved')}
+  if(k==='plus'){const a=DATA.accounts.find(x=>x.email===e);let base=(a.exp_day&&a.exp_day>=DATA.today)?a.exp_day:DATA.today;const t=new Date(base+'T00:00:00Z');t.setUTCDate(t.getUTCDate()+30);return act('activate',{email:e,exp:t.toISOString().slice(0,10)},'Extended to '+dstr(t.toISOString().slice(0,10)))}
+  if(k==='stop'){if(confirm('Stop '+e+'? They are locked out on their next open.'))act('stop',{email:e},'Stopped')}
+  if(k==='block')return act('block',{email:e,on:b.dataset.on==='1'},'Done');
+  if(k==='swap')return act('resetswap',{email:e},'Swap wait reset');
+  if(k==='rmdev'){if(confirm('Remove this device from '+e+'?'))act('removedevice',{email:e,deviceId:b.dataset.d},'Device removed')}
+  if(k==='note'){const n=prompt('Note for '+e,(DATA.accounts.find(x=>x.email===e)||{}).note||'');if(n!==null)act('note',{email:e,note:n},'Saved')}
+  if(k==='del'){if(confirm('PERMANENTLY delete '+e+' and their synced progress? This cannot be undone.'))act('delete',{email:e},'Deleted')}
+}
+</script></body></html>
