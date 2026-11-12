@@ -1711,7 +1711,8 @@ function showAccount(st) {
       const err = lsGet('aerr'); lsSet('aerr', '');
       body = (env.inApp ? '<div class="env-note warn"><b>Google sign-in does not work inside this app.</b> Use the email link below, or open this page in Chrome / Safari.</div>' : '<button class="lock-btn main" id="accGoogle" style="margin-bottom:10px">Continue with Google</button><div class="lock-step" style="text-align:center">or</div>') +
         '<input class="acc-in" id="accEmail" type="email" inputmode="email" autocomplete="email" placeholder="your email" value="' + email.replace(/"/g, '') + '"><button class="lock-btn ' + (env.inApp ? 'main' : 'ghost') + '" id="accLink" style="margin-top:8px">Email me a sign-in link</button>' +
-        '<div class="lock-err" id="accErr">' + (err || '') + '</div><div class="lock-sub" id="accSent" style="display:none"></div>';
+        '<div class="lock-err" id="accErr">' + (err || '') + '</div><div class="lock-sub" id="accSent" style="display:none"></div>' +
+        (lsGet('aemail') ? '' : '<div class="lock-sub" style="margin-top:16px">New here? Try it first, no log-in needed.</div><a class="lock-btn main" href="https://medixella.github.io/qbank/trial/" style="display:block;text-align:center;text-decoration:none;margin-top:6px">Start your 1-day free trial</a><div class="lock-sub" style="font-size:12px;margin-top:6px">One free trial per person. Already paid? Log in above.</div>');
     }
   } else if (st.state === 'pending') {
     title = 'Account created'; sub = `You are signed in as <b>${email}</b>. Your account is waiting to be activated.`;
@@ -4580,6 +4581,7 @@ function trShowExpired() {
     <p class="lock-sub" style="font-size:16px;color:#fff;font-weight:700">Your 1-day free trial is expired.<br>Contact us for access.</p>
     <p class="lock-sub">To get full access to Medixella Qbank, contact us on:</p>
     ${trBtns()}
+    <div style="margin-top:16px"><a class="lock-btn ghost" href="https://medixella.github.io/qbank/app/" style="display:block;text-align:center;text-decoration:none">Already activated? Log in</a></div>
     <div style="max-width:380px;margin:18px auto 0"><div class="tr-h3" style="color:#7ff0dd">What you get with full access</div><div style="color:#fff">${trPerksHTML()}</div></div>
     <div class="lock-foot">Medixella Qbank</div></div>`;
   window.scrollTo(0, 0);
