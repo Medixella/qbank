@@ -517,6 +517,17 @@ html,body{touch-action:manipulation}
 .mxs-foot{text-align:center;font-size:12px;color:var(--ink-soft);margin-top:4px}
 /* ---- night theme ---- */
 html[data-theme=dark]{--paper:#0b1620;--card:#13222f;--ink:#e6edf0;--ink-soft:#9fb0b8;--line:#243645;--teal-light:#12342d;--coral-light:#3a2119;--gold-light:#2c2616;color-scheme:dark}
+
+/* selected answer: readable in day and night mode */
+.qopt.picked{background:#e8f3f1;border-color:#0F6E56;border-width:2px}
+.qopt.picked .letter{background:#0F6E56;border-color:#0F6E56;color:#fff}
+html[data-theme=dark] .qopt.picked{background:#14383a;border-color:#5EEAD4}
+html[data-theme=dark] .qopt.picked .letter{background:#5EEAD4;border-color:#5EEAD4;color:#06283A}
+html[data-theme=dark] .qopt.picked .otext{color:#fff}
+html[data-theme=dark] .chip.selected,html[data-theme=dark] .opt-btn.selected{background:#14B8A6;border-color:#5EEAD4;color:#06283A}
+html[data-theme=dark] .chip.selected .cnt{color:#0b3b46}
+html[data-theme=dark] .mi-g.on{background:#14383a;border-color:#5EEAD4;color:#fff}
+.mi-goal-custom{display:flex;align-items:center;gap:10px;margin-top:10px}.mi-goal-custom input{flex:1;min-width:0;padding:11px 12px;border-radius:12px;border:1.5px solid var(--line);background:var(--paper);color:var(--ink);font-size:15px;font-weight:700}.mi-goal-custom small{color:var(--ink-soft);font-size:12px}
 html[data-theme=dark] .tab-btn.active{color:var(--gold-2)!important}
 html[data-theme=dark] .tab-btn.active .tic{filter:none}
 html[data-theme=dark] .today{background:linear-gradient(180deg,#14232f,#101d28)!important;border-color:#2a3f50!important}
@@ -2875,7 +2886,7 @@ function mxNoUni(t) { return String(t || '').replace(/Liaquat University of Medi
 function mxqToast(t) { const d = document.createElement('div'); d.className = 'milestone'; d.textContent = t; document.body.appendChild(d); setTimeout(() => d.remove(), 3200); }
 function attachTodayEvents() {
   const ge = document.getElementById('goalEdit');
-  if (ge) ge.addEventListener('click', () => { const cur = parseInt(lsGet('goal') || '20', 10); const nx = { 10: 20, 20: 30, 30: 50, 50: 10 }[cur] || 20; lsSet('goal', String(nx)); render(); });
+  if (ge) ge.addEventListener('click', () => { mxsOpen = 'info'; goSettings(); });
   const ec = document.getElementById('examCd');
   if (ec) ec.addEventListener('click', () => mxCal({ value: lsGet('exam') || '', title: 'Your exam date', onSave: v => { lsSet('exam', v); render(); }, onClear: () => { lsSet('exam', ''); render(); } }));
   const d10 = document.getElementById('daily10');
@@ -4330,7 +4341,7 @@ function settingsHTML() {
       <label class="mi-f"><span>University / college (optional)</span><input id="miUni" maxlength="60" value="${escapeHtml(lsGet('uni') || '')}" placeholder="Your university"></label>
       <label class="mi-f"><span>Year / class (optional)</span><input id="miYear" maxlength="30" value="${escapeHtml(lsGet('year') || '')}" placeholder="e.g. Final year MBBS"></label>
       <div class="mi-f"><span>Exam date</span><button class="mi-date" id="miExam">&#128197; ${exTxt}</button></div>
-      <div class="mi-f"><span>Daily goal (questions)</span><div class="mi-goals">${[10, 20, 30, 50].map(g => `<button class="mi-g ${g === goal ? 'on' : ''}" data-mi-goal="${g}">${g}</button>`).join('')}</div></div>
+      <div class="mi-f"><span>Daily goal (questions)</span><div class="mi-goals">${[10, 20, 30, 50].map(g => `<button class="mi-g ${g === goal ? 'on' : ''}" data-mi-goal="${g}">${g}</button>`).join('')}</div><div class="mi-goal-custom"><input id="miGoalIn" type="number" inputmode="numeric" min="1" max="500" placeholder="Your own goal" value="${[10, 20, 30, 50].includes(goal) ? '' : goal}" aria-label="Custom daily goal"><small>1 to 500 questions</small></div></div>
       <button class="mi-save" id="miSave">Save changes</button>
       <div class="mxs-sub" style="margin:8px 0 0">Only your name (and score) is visible to others on the Leaderboard. University and year stay on this device.</div></div>
     </div></div>
@@ -4366,7 +4377,9 @@ function attachSettingsEvents() {
     render();
   });
   document.getElementById('miExam').addEventListener('click', () => mxCal({ value: lsGet('exam') || '', title: 'Your exam date', onSave: v => { lsSet('exam', v); render(); }, onClear: () => { lsSet('exam', ''); render(); } }));
-  document.querySelectorAll('[data-mi-goal]').forEach(b => b.addEventListener('click', () => { lsSet('goal', b.getAttribute('data-mi-goal')); document.querySelectorAll('[data-mi-goal]').forEach(x => x.classList.toggle('on', x === b)); }));
+  document.querySelectorAll('[data-mi-goal]').forEach(b => b.addEventListener('click', () => { lsSet('goal', b.getAttribute('data-mi-goal')); document.querySelectorAll('[data-mi-goal]').forEach(x => x.classList.toggle('on', x === b)); const gi = document.getElementById('miGoalIn'); if (gi) gi.value = ''; }));
+  const _gi = document.getElementById('miGoalIn');
+  if (_gi) _gi.addEventListener('change', () => { let v = parseInt(_gi.value, 10); if (!(v >= 1)) { _gi.value = ''; return; } if (v > 500) v = 500; _gi.value = v; lsSet('goal', String(v)); document.querySelectorAll('[data-mi-goal]').forEach(x => x.classList.toggle('on', parseInt(x.getAttribute('data-mi-goal'), 10) === v)); });
   document.getElementById('mxsAwake').addEventListener('change', e => { MXS.awake = e.target.checked; mxsSave(); mxsApply(); });
   document.getElementById('mxsReset').addEventListener('click', () => { MXS = { theme: 'auto', warm: 0, dim: 0, awake: false }; mxsSave(); mxsApply(); render(); });
 }
