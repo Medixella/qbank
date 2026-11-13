@@ -1296,6 +1296,14 @@ async function lbToken() {
   a = { uid: j.localId, id: j.idToken, ref: j.refreshToken, exp: Date.now() + (parseInt(j.expiresIn, 10) || 3600) * 1000 };
   lsSet('lb:auth', JSON.stringify(a)); return a;
 }
+async function lbTokenFrom(a) {
+  try {
+    if (a.id && a.exp > Date.now() + 60000) return a.id;
+    if (!a.ref) return null;
+    const r = await fetch('https://securetoken.googleapis.com/v1/token?key=' + FB.key, { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: 'grant_type=refresh_token&refresh_token=' + encodeURIComponent(a.ref) });
+    const j = await r.json(); return (r.ok && j.id_token) ? j.id_token : null;
+  } catch (e) { return null; }
+}
 function lbInt(n) { return { integerValue: String(Math.max(0, Math.floor(n))) }; }
 async function lbPoints() {
   const st = await getLocalStats(), at = st.attempts || {}, ks = Object.keys(at);
@@ -1308,6 +1316,24 @@ async function lbSync(force) {
   if (!force && Date.now() - lbLast < 30000) return;
   lbBusy = true;
   try {
+    const old = lbJSON('lb:old', null);
+    if (old && old.uid) {   // this device used its own leaderboard entry before; remove it so the same student is not listed twice
+      try {
+        const cur = await lbToken();
+        if (cur.uid !== old.uid) {
+          const t = await lbTokenFrom(old);
+          if (t) {
+            const wk0 = lbWeek(), mo0 = lbMonth();
+            for (const p of ['/leaderboard/', '/weekly/' + wk0 + '/scores/', '/weekly/' + mo0 + '/scores/']) {
+              const url = FS + p + old.uid + '?key=' + FB.key, H0 = { 'content-type': 'application/json', 'Authorization': 'Bearer ' + t };
+              let rr = await fetch(url, { method: 'DELETE', headers: H0 });
+              if (!rr.ok) await fetch(url, { method: 'PATCH', headers: H0, body: JSON.stringify({ fields: { name: { stringValue: 'Student' }, points: lbInt(0), updated: lbInt(Date.now()) } }) });
+            }
+          }
+        }
+      } catch (e) {}
+      try { window.localStorage.removeItem(LSP + 'lb:old'); } catch (e) {}
+    }
     const p = await lbPoints(), a = await lbToken();
     const best = Math.max(p.points, parseInt(lsGet('lb:best') || '0', 10)); lsSet('lb:best', String(best));
     const wk = lbWeek(); let w = lbJSON('lb:wk', null);
@@ -1447,7 +1473,7 @@ const STORAGE_AVAILABLE = typeof window !== 'undefined' && !!window.storage
 const memoryStore = {};
 
 function lsGet(k){ try { return window.localStorage.getItem(LSP + k); } catch (e) { return null; } }
-const ACC_SYNC_RE = /^(priv:mystats:|blocks$|hl:|ln:|goal$|exam$|name$|name_at$|lb:name$|uni$|year$)/;
+const ACC_SYNC_RE = /^(priv:mystats:|blocks$|hl:|ln:|goal$|exam$|name$|name_at$|lb:name$|lb:auth$|lb:wk$|lb:mo$|lb:best$|uni$|year$)/;
 let ACC_DIRTY_HOOK = null;
 function lsSet(k,v){ try { window.localStorage.setItem(LSP + k, v); if (ACC_SYNC_RE.test(k)) { window.localStorage.setItem(LSP + '_st:' + k, String(Date.now())); if (ACC_DIRTY_HOOK) ACC_DIRTY_HOOK(); } return true; } catch (e) { return false; } }
 
@@ -1900,7 +1926,15 @@ function accMerge(remote) {
     if (lv === null || lv === undefined) { accRawSet(k, r.v, r.t); changed = true; continue; }
     if (lv === r.v) continue;
     let nv;
-    if (k.indexOf('priv:mystats:') === 0) nv = accMergeStats(lv, r.v);
+    if (k === 'lb:auth') {
+      // both devices must use the SAME leaderboard identity, or one person appears twice: the smaller uid wins on every device
+      let la = null, ra = null; try { la = JSON.parse(lv); ra = JSON.parse(r.v); } catch (e) {}
+      if (la && ra && la.uid && ra.uid && la.uid !== ra.uid) {
+        if (ra.uid < la.uid) { try { lsSet('lb:old', lv); } catch (e) {} accRawSet(k, r.v, r.t); changed = true; }
+        continue;
+      }
+      nv = (r.t || 0) > lt ? r.v : lv;
+    } else if (k.indexOf('priv:mystats:') === 0) nv = accMergeStats(lv, r.v);
     else if (k === 'blocks') nv = accMergeBlocks(lv, r.v);
     else nv = (r.t || 0) > lt ? r.v : lv;
     if (nv !== lv) { accRawSet(k, nv, Math.max(r.t || 0, lt)); changed = true; }
