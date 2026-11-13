@@ -1387,7 +1387,7 @@ async function lbRankOf(parent, coll, pts) {
 function lbCacheRead() {
   if (lbState.top) return;
   const c = lbJSON('lb:cache', null);
-  if (c && c.top) { lbState.top = c.top; lbState.weekTop = c.weekTop; lbState.monthTop = c.monthTop; lbState.rankAll = c.rankAll; lbState.rankWeek = c.rankWeek; lbState.rankMonth = c.rankMonth; lbState.at = c.at || 0; }
+  if (c && c.top && c.v === 50) { lbState.top = c.top; lbState.weekTop = c.weekTop; lbState.monthTop = c.monthTop; lbState.rankAll = c.rankAll; lbState.rankWeek = c.rankWeek; lbState.rankMonth = c.rankMonth; lbState.at = c.at || 0; }
 }
 async function lbLoad(force) {
   lbCacheRead();
@@ -1401,7 +1401,7 @@ async function lbLoad(force) {
     const [top, weekTop, monthTop, r1, r2, r3] = await Promise.all([lbQuery('', 'leaderboard', 50), lbQuery('/weekly/' + wk, 'scores', 50), lbQuery('/weekly/' + mo, 'scores', 50),
       lbRankOf('', 'leaderboard', best).catch(() => null), lbRankOf('/weekly/' + wk, 'scores', wp).catch(() => null), lbRankOf('/weekly/' + mo, 'scores', mp).catch(() => null)]);
     lbState.top = top; lbState.weekTop = weekTop; lbState.monthTop = monthTop; lbState.rankAll = r1; lbState.rankWeek = r2; lbState.rankMonth = r3; lbState.at = Date.now();
-    lsSet('lb:cache', JSON.stringify({ top, weekTop, monthTop, rankAll: r1, rankWeek: r2, rankMonth: r3, at: lbState.at }));
+    lsSet('lb:cache', JSON.stringify({ top, weekTop, monthTop, rankAll: r1, rankWeek: r2, rankMonth: r3, at: lbState.at, v: 50 }));
   } catch (e) { lbState.err = lbState.top ? '' : (/query 40[13]|rank 40[13]/.test(e.message) ? 'Leaderboard is not ready yet (database rules).' : 'Could not load the leaderboard. Check your internet and try again.'); }
   lbState.loading = false; if (currentScreen === 'leaders') render(); else if (currentScreen === 'home') homeMedalFill();
 }
@@ -1464,7 +1464,7 @@ function attachLeadersEvents() {
   const dd = document.getElementById('lbDD'); if (dd) dd.addEventListener('click', () => { lbState.dd = !lbState.dd; render(); });
   document.querySelectorAll('[data-lbmode]').forEach(el => el.addEventListener('click', () => { lbState.mode = el.getAttribute('data-lbmode'); lbState.dd = false; lbState.all = false; render(); }));
   const rt = document.getElementById('lbRetry'); if (rt) rt.addEventListener('click', () => lbLoad(true));
-  const mo = document.getElementById('lbMore'); if (mo) mo.addEventListener('click', () => { lbState.all = !lbState.all; render(); });
+  const mo = document.getElementById('lbMore'); if (mo) mo.addEventListener('click', () => { lbState.all = !lbState.all; render(); if (lbState.all) lbLoad(true); });
 }
 
 let homeGroup = null;
