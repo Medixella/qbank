@@ -3024,16 +3024,15 @@ function attachTodayEvents() {
 
 
 function mxqName() { const n = (lsGet('name') || '').trim(); return n; }
-// One name everywhere (Home, Settings, Leaderboard). It can be changed once every 5 days.
+// One name everywhere (Home, Settings, Leaderboard). It can be changed any time.
 const NAME_WAIT_MS = 5 * 24 * 3600 * 1000;
 function mxqNameNextAt() { const t = parseInt(lsGet('name_at') || '0', 10) || 0; return t ? t + NAME_WAIT_MS : 0; }
-function mxqNameLocked() { return !!mxqName() && mxqNameNextAt() > mxqNow(); }
+function mxqNameLocked() { return false; }   // no limit: the name can be changed any time
 function mxqNameNextStr() { return new Date(mxqNameNextAt()).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }); }
 function mxqSetName(raw) {
   const v = String(raw || '').trim().replace(/\s+/g, ' ').replace(/^(dr\.?\s+)/i, 'Dr. ').slice(0, 24), cur = mxqName();
   if (!v) return { ok: false, msg: 'Please type your name' };
   if (v === cur) return { ok: true, same: true };
-  if (mxqNameLocked()) return { ok: false, msg: 'You can change your name again on ' + mxqNameNextStr() };
   lsSet('name', v); lsSet('lb:name', v);
   if (cur) lsSet('name_at', String(mxqNow()));
   try { if (MXQ_ACCT) accSyncPush(true); } catch (e) {}   // send the new name to the account at once        // the very first name is free; every change after that starts the 5-day wait
@@ -4448,7 +4447,7 @@ function settingsHTML() {
   return `<div class="topbar"><div class="brand">Settings</div></div>
   <div class="mxs-wrap">
     <div class="mxs-acc ${mxsOpen === 'info' ? 'open' : ''}" data-acc="info"><button class="mxs-ah" data-acc-t="info"><span class="ai">&#128100;</span><span class="at"><b>My info</b><small>Name, exam date and daily goal</small></span><span class="chev">&#8250;</span></button><div class="mxs-ab">
-    <div class="mxs-card"><div class="mxs-sub">Your name shows on Home and on the Leaderboard. You can change it once every 5 days.</div>
+    <div class="mxs-card"><div class="mxs-sub">Your name shows on Home and on the Leaderboard.  You can change it any time.</div>
       <div class="mi-top"><div class="lb2-av big" id="miAv">${escapeHtml(lbInit(mxqName() || '?'))}</div><div class="mi-st"><b>${escapeHtml(mxqName() || 'No name yet')}</b><span>${an} answered &middot; ${an ? Math.round(100 * cr / an) : 0}% accuracy</span></div></div>
       <label class="mi-f"><span>Name</span><input id="miName" maxlength="24" value="${escapeHtml(mxqName())}" placeholder="Your name" ${mxqNameLocked() ? 'readonly style="opacity:.6"' : ''}></label>${mxqNameLocked() ? `<div class="mxs-sub" style="margin:-4px 0 8px">You changed your name recently. You can change it again on <b>${mxqNameNextStr()}</b>.</div>` : ''}
       <label class="mi-f"><span>University / college (optional)</span><input id="miUni" maxlength="60" value="${escapeHtml(lsGet('uni') || '')}" placeholder="Your university"></label>
