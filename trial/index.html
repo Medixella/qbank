@@ -3193,6 +3193,16 @@ async function startSearchBlock(qid) {
 
 // ---- Year decks: modules -> subjects -> topics ----
 const SUBJ_ORDER = ['Gross Anatomy', 'Embryology', 'Histology', 'Physiology', 'Biochemistry', 'Pathology', 'Pharmacology', 'Community Medicine', 'Behavioural Sciences'];
+// Chips above a question show only the subject and the chapter. The topic would give the answer away, so it is shown after answering.
+function qChips(q) {
+  const yd = /Year MBBS$/.test(q.subject) && q.topic && q.topic.indexOf(' \u00b7 ') > 0;
+  if (yd) {
+    const sj = subjOf(q.topic), rest = topOf(q.topic);
+    if (q.subject === 'First Year MBBS' || q.subject === 'Second Year MBBS') return { subj: sj, sys: q.system, topic: rest };
+    return { subj: sj, sys: rest, topic: '' };
+  }
+  return { subj: q.subject, sys: q.system, topic: (q.topic && q.topic !== q.system) ? q.topic : '' };
+}
 function subjOf(n) { const i = n.indexOf(' · '); return i > 0 ? n.slice(0, i) : n; }
 function topOf(n) { const i = n.indexOf(' · '); return i > 0 ? n.slice(i + 3) : n; }
 function setupSystems() { return (MANIFEST[setup.subject] || []).filter(s => !setup.only || setup.only.includes(s.name)); }
@@ -3434,7 +3444,8 @@ function quizHTML() {
   if (session.idx === 0 && session.justResetPool) {
     html += `<div class="mastery-banner">&#127881; You've mastered every question in this set — starting a fresh round so you can keep reinforcing it.</div>`;
   }
-  html += `<div class="qmeta"><span class="tag subj">${escapeHtml(q.subject)}</span><span class="tag sys">${escapeHtml(q.system)}</span>${q.topic && q.topic!==q.system ? `<span class="tag sys">${escapeHtml(q.topic)}</span>` : ''}${q.is_new ? '<span class="tag new">New</span>' : ''}</div>`;
+  const _ch = qChips(q);
+  html += `<div class="qmeta"><span class="tag subj">${escapeHtml(_ch.subj)}</span><span class="tag sys">${escapeHtml(_ch.sys)}</span>${q.is_new ? '<span class="tag new">New</span>' : ''}</div>`;
   html += `<div class="hl-strip"><span class="hl-lbl">Highlighter</span>${['y','o','g','p'].map(c => `<button class="hl-sd ${hlActive===c?'on':''}" data-hls="${c}" style="background:${HL_COLORS[c]}" aria-label="highlight colour"></button>`).join('')}<button class="hl-sd hl-se ${hlActive==='x'?'on':''}" data-hls="x" aria-label="eraser">&#10005;</button><span class="hl-hint" id="hlHint">${hlActive==='x' ? 'Eraser on: select highlighted text to remove it' : hlActive ? 'Select any text and it turns this colour' : 'Tap a colour, then select text'}</span></div>`;
   html += `<p class="qstem">${escapeHtml(q.stem)}</p>`;
 
@@ -3463,6 +3474,7 @@ function quizHTML() {
   if (submitted && immediate) {
     const correct = picked === q.correct_letter;
     html += `<div class="explain-box">`;
+    { const _t = qChips(q).topic; if (_t) html += `<div class="explain-sec" style="margin-top:0"><h4>Topic</h4><p>${escapeHtml(_t)}</p></div>`; }
     html += `<div class="explain-verdict ${correct?'ok':'no'}">${correct ? '&#10003; Correct' : '&#10007; Incorrect'} — Answer: ${q.correct_letter}. ${escapeHtml(q.options[q.correct_letter])}</div>`;
     html += `<div class="explain-sec"><h4>Why this is correct</h4><p>${escapeHtml(q.why_correct)}</p></div>`;
     if (q.why_wrong && Object.keys(q.why_wrong).length) {
