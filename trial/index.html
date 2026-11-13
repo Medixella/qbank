@@ -731,6 +731,26 @@ html body .tag.new{background:var(--teal-light);color:var(--teal)}
 html body .t-btn.gold{background:linear-gradient(135deg,#14B8A6,#0E8F84);color:#fff;box-shadow:0 8px 16px -10px #0E8F84}
 html body .subject-card::before,html body .mx-welcome::before{background:linear-gradient(90deg,#14B8A6,#5EEAD4)}
 html body .mx-welcome{border-left-color:#14B8A6}
+
+/* ===== night mode: every state readable (answers, explanations, pearl) ===== */
+html[data-theme=dark]{--danger:#ff8f8f;--danger-light:#3d1d20}
+html[data-theme=dark] .qopt:active{background:#1b3041}
+html[data-theme=dark] .qopt.correct{background:#0f3a33;border-color:#34d3b4}
+html[data-theme=dark] .qopt.correct .letter{background:#34d3b4;border-color:#34d3b4;color:#06283A}
+html[data-theme=dark] .qopt.correct .otext{color:#e3fbf6}
+html[data-theme=dark] .qopt.incorrect{background:#43202a;border-color:#ff8f8f}
+html[data-theme=dark] .qopt.incorrect .letter{background:#ff8f8f;border-color:#ff8f8f;color:#3a0d12}
+html[data-theme=dark] .qopt.incorrect .otext{color:#ffe3e3}
+html[data-theme=dark] .explain-verdict.ok{color:#5EEAD4}
+html[data-theme=dark] .explain-verdict.no{color:#ff9d9d}
+html[data-theme=dark] .pearl-box{background:#16352f;color:#d9f5ee;border-left:3px solid #34d3b4}
+html[data-theme=dark] .wrong-item{border-left-color:#3b5266;color:#d3dde2}
+html[data-theme=dark] .wrong-item b{color:#fff}
+html[data-theme=dark] .explain-sec h4{color:#a9bcc5}
+html[data-theme=dark] .result-stat.incorrect .n{color:#ff9d9d}
+html[data-theme=dark] .fc-again{background:#43202a;color:#ffb3b3}
+html[data-theme=dark] .flag-btn.flagged{background:#3a3115;color:#ffe08a;border-color:#8a742a}
+html[data-theme=dark] .wt-count{color:#ff9d9d}
 </style>
 <script>
 window.__TRIAL__ = true; window.__TRIAL_KEY__ = 'bf1c336cdd39975a78541903c7ab6534'; window.__TRIAL_FULL__ = {q:10500};
@@ -3518,7 +3538,7 @@ function quizHTML() {
   if (submitted && immediate) {
     const correct = picked === q.correct_letter;
     html += `<div class="explain-box">`;
-    { const _t = qChips(q).topic; if (_t) html += `<div class="explain-sec" style="margin-top:0"><h4>Topic</h4><p>${escapeHtml(_t)}</p></div>`; }
+    { const _t = qChips(q).topic; if (_t && !/^other\s*\/\s*mixed$/i.test(_t)) html += `<div class="explain-sec" style="margin-top:0"><h4>Topic</h4><p>${escapeHtml(_t)}</p></div>`; }
     html += `<div class="explain-verdict ${correct?'ok':'no'}">${correct ? '&#10003; Correct' : '&#10007; Incorrect'} — Answer: ${q.correct_letter}. ${escapeHtml(q.options[q.correct_letter])}</div>`;
     html += `<div class="explain-sec"><h4>Why this is correct</h4><p>${escapeHtml(q.why_correct)}</p></div>`;
     if (q.why_wrong && Object.keys(q.why_wrong).length) {
