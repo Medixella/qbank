@@ -3550,7 +3550,7 @@ function quizHTML() {
     html += `<button class="nav-skip" id="skipBtn">Skip</button>`;
     html += `<button class="nav-submit" id="submitBtn" ${!picked?'disabled':''}>Submit answer</button>`;
   } else {
-    html += `<button class="nav-skip" id="changeBtn">Change answer</button>`;
+    if (!immediate) html += `<button class="nav-skip" id="changeBtn">Change answer</button>`;
     html += `<button class="nav-next" id="nextBtn">${session.idx < session.questions.length-1 ? 'Next question' : 'Finish block'}</button>`;
   }
   html += `</div>`;
