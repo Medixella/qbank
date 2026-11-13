@@ -4668,7 +4668,7 @@ function trCss() {
 .tr-card .tr-perks b{display:inline;font-size:14px;color:#fff}
 .tr-h3{font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:#7ff0dd;font-weight:800;margin:14px 0 0;text-align:left}
 .tr-note-i{background:rgba(255,255,255,.08);border-radius:14px;padding:12px;margin:10px 0;text-align:left;font-size:14px;line-height:1.5}
-.subject-card{position:relative}.tr-lk{position:absolute;top:8px;right:10px;font-size:16px}.tr-free{font-size:11.5px;font-weight:700;color:#0F6E56;margin-top:4px}
+.subject-card{position:relative}.tr-yb{position:absolute;top:8px;right:8px;font-size:9.5px;font-weight:800;line-height:1;letter-spacing:0;color:#fff;background:linear-gradient(90deg,#0b8a7e,#0F6E56);padding:4px 7px;border-radius:999px;box-shadow:0 2px 6px -2px rgba(15,110,86,.55);white-space:nowrap;pointer-events:none}.tr-yb.done{background:#6b7280;box-shadow:none}.tr-lk{position:absolute;top:8px;right:10px;font-size:16px}.tr-free{font-size:11.5px;font-weight:700;color:#0F6E56;margin-top:4px}
 .chip.tr-chiplock{opacity:.6}
 .pdf-card.tr-locked{opacity:.78}.pdf-card.tr-locked .pdf-b{background:#e5e7eb!important;color:#6b7280!important}`;
   document.head.appendChild(st);
@@ -4884,6 +4884,15 @@ if (TRIAL) {
       });
       const sd = document.querySelector('[data-group="study"] .deck-tx span'); if (sd) sd.innerHTML = '&#128274; Full access only';
       document.querySelectorAll('.tr-lk,.tr-free,.tr-acl,.tr-fr2').forEach(e => e.remove());
+      // each year deck shows how much of it is free
+      const _yc = { 'First Year MBBS': '1', 'Second Year MBBS': '2', 'Third Year MBBS': '3', 'Fourth Year MBBS': '4', 'Final Year MBBS': 'F' };
+      document.querySelectorAll('.subject-card[data-group^="lumhs:"]').forEach(c => {
+        const y = _yc[(c.getAttribute('data-group') || '').slice(6)]; if (!y) return;
+        const left = trYLeft(y), t = left === TR_PER ? 'Only ' + TR_PER + ' Qs free' : left > 0 ? left + ' of ' + TR_PER + ' Qs left' : 'Free Qs finished';
+        let b = c.querySelector('.tr-yb');
+        if (!b) { b = document.createElement('span'); b.className = 'tr-yb'; c.appendChild(b); }
+        b.textContent = t; b.classList.toggle('done', left === 0);
+      });
       trTick();
     } catch (e) {}
     return r;
