@@ -1304,6 +1304,16 @@ async function lbTokenFrom(a) {
     const j = await r.json(); return (r.ok && j.id_token) ? j.id_token : null;
   } catch (e) { return null; }
 }
+let _lbAcct = null;
+async function lbAcct() {
+  if (_lbAcct !== null) return _lbAcct;
+  try {
+    const e = (lsGet('aemail') || '').trim().toLowerCase(); if (!e || !(window.crypto && crypto.subtle)) return '';
+    const h = await crypto.subtle.digest('SHA-256', new TextEncoder().encode('mxq|' + e));
+    _lbAcct = Array.from(new Uint8Array(h)).slice(0, 8).map(b => b.toString(16).padStart(2, '0')).join('');
+  } catch (er) { _lbAcct = ''; }
+  return _lbAcct;
+}
 function lbInt(n) { return { integerValue: String(Math.max(0, Math.floor(n))) }; }
 async function lbPoints() {
   const st = await getLocalStats(), at = st.attempts || {}, ks = Object.keys(at);
@@ -1327,27 +1337,27 @@ async function lbSync(force) {
             for (const p of ['/leaderboard/', '/weekly/' + wk0 + '/scores/', '/weekly/' + mo0 + '/scores/']) {
               const url = FS + p + old.uid + '?key=' + FB.key, H0 = { 'content-type': 'application/json', 'Authorization': 'Bearer ' + t };
               let rr = await fetch(url, { method: 'DELETE', headers: H0 });
-              if (!rr.ok) await fetch(url, { method: 'PATCH', headers: H0, body: JSON.stringify({ fields: { name: { stringValue: 'Student' }, points: lbInt(0), updated: lbInt(Date.now()) } }) });
+              if (!rr.ok) await fetch(url, { method: 'PATCH', headers: H0, body: JSON.stringify({ fields: Object.assign({ name: { stringValue: 'Student' }, points: lbInt(0), updated: lbInt(Date.now()) }, (await lbAcct()) ? { acct: { stringValue: await lbAcct() } } : {}) }) });
             }
           }
         }
       } catch (e) {}
       try { window.localStorage.removeItem(LSP + 'lb:old'); } catch (e) {}
     }
-    const p = await lbPoints(), a = await lbToken();
+    const p = await lbPoints(), a = await lbToken(), ac = await lbAcct(), acf = ac ? { acct: { stringValue: ac } } : {};
     const best = Math.max(p.points, parseInt(lsGet('lb:best') || '0', 10)); lsSet('lb:best', String(best));
     const wk = lbWeek(); let w = lbJSON('lb:wk', null);
     if (!w || w.week !== wk) { w = { week: wk, base: parseInt(lsGet('lb:last') || String(best), 10) }; lsSet('lb:wk', JSON.stringify(w)); }
     const name = (mxqName() || lsGet('lb:name') || 'Student').slice(0, 24);
     const H = { 'content-type': 'application/json', 'Authorization': 'Bearer ' + a.id };
     const now = Date.now();
-    let r = await fetch(FS + '/leaderboard/' + a.uid + '?key=' + FB.key, { method: 'PATCH', headers: H, body: JSON.stringify({ fields: { name: { stringValue: name }, points: lbInt(best), answered: lbInt(p.answered), correct: lbInt(p.correct), updated: lbInt(now) } }) });
+    let r = await fetch(FS + '/leaderboard/' + a.uid + '?key=' + FB.key, { method: 'PATCH', headers: H, body: JSON.stringify({ fields: Object.assign({ name: { stringValue: name }, points: lbInt(best), answered: lbInt(p.answered), correct: lbInt(p.correct), updated: lbInt(now) }, acf) }) });
     if (!r.ok) throw new Error('write ' + r.status);
-    r = await fetch(FS + '/weekly/' + wk + '/scores/' + a.uid + '?key=' + FB.key, { method: 'PATCH', headers: H, body: JSON.stringify({ fields: { name: { stringValue: name }, points: lbInt(best - w.base), updated: lbInt(now) } }) });
+    r = await fetch(FS + '/weekly/' + wk + '/scores/' + a.uid + '?key=' + FB.key, { method: 'PATCH', headers: H, body: JSON.stringify({ fields: Object.assign({ name: { stringValue: name }, points: lbInt(best - w.base), updated: lbInt(now) }, acf) }) });
     if (!r.ok) throw new Error('write ' + r.status);
     const mo = lbMonth(); let m = lbJSON('lb:mo', null);
     if (!m || m.month !== mo) { m = { month: mo, base: parseInt(lsGet('lb:last') || String(best), 10) }; lsSet('lb:mo', JSON.stringify(m)); }
-    r = await fetch(FS + '/weekly/' + mo + '/scores/' + a.uid + '?key=' + FB.key, { method: 'PATCH', headers: H, body: JSON.stringify({ fields: { name: { stringValue: name }, points: lbInt(best - m.base), updated: lbInt(now) } }) });
+    r = await fetch(FS + '/weekly/' + mo + '/scores/' + a.uid + '?key=' + FB.key, { method: 'PATCH', headers: H, body: JSON.stringify({ fields: Object.assign({ name: { stringValue: name }, points: lbInt(best - m.base), updated: lbInt(now) }, acf) }) });
     if (!r.ok) throw new Error('write ' + r.status);
     lsSet('lb:last', String(best)); lbLast = Date.now(); lbState.err = '';
   } catch (e) { lbState.err = e.code === 'auth' ? 'Leaderboard is not ready yet (anonymous sign-in is off).' : /write 40[13]/.test(e.message) ? 'Leaderboard is not ready yet (database rules).' : ''; }
@@ -1359,7 +1369,7 @@ window.addEventListener('online', () => lbSync(false));
 async function lbQuery(parent, coll, n) {
   const r = await fetch(FS + parent + ':runQuery?key=' + FB.key, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ structuredQuery: { from: [{ collectionId: coll }], orderBy: [{ field: { fieldPath: 'points' }, direction: 'DESCENDING' }], limit: n } }) });
   const j = await r.json(); if (!r.ok) { const e = new Error('query ' + r.status); throw e; }
-  return j.filter(x => x.document).map(x => { const f = x.document.fields || {}, id = x.document.name.split('/').pop(); const g = k => f[k] ? (f[k].integerValue !== undefined ? parseInt(f[k].integerValue, 10) : f[k].stringValue) : 0; return { uid: id, name: g('name') || 'Student', points: g('points'), answered: g('answered'), correct: g('correct') }; });
+  return j.filter(x => x.document).map(x => { const f = x.document.fields || {}, id = x.document.name.split('/').pop(); const g = k => f[k] ? (f[k].integerValue !== undefined ? parseInt(f[k].integerValue, 10) : f[k].stringValue) : 0; return { uid: id, name: g('name') || 'Student', points: g('points'), answered: g('answered'), correct: g('correct'), acct: g('acct') || '' }; }).filter((x, i, arr) => !x.acct || arr.findIndex(y => y.acct === x.acct) === i);
 }
 async function lbRankOf(parent, coll, pts) {
   const r = await fetch(FS + parent + ':runAggregationQuery?key=' + FB.key, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ structuredAggregationQuery: { structuredQuery: { from: [{ collectionId: coll }], where: { fieldFilter: { field: { fieldPath: 'points' }, op: 'GREATER_THAN', value: { integerValue: String(pts) } } } }, aggregations: [{ alias: 'n', count: {} }] } }) });
