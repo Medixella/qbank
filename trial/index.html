@@ -574,7 +574,15 @@ html[data-theme=dark] body{background:#0b1620;color:var(--ink)}
 [data-theme=dark] .lb2-card,[data-theme=dark] .lb2-pc{background:linear-gradient(180deg,#14303a,#102630);border-color:#21434f;color:#e6f1f4}
 [data-theme=dark] .lb2-card h3,[data-theme=dark] .lb2-cap,[data-theme=dark] .lb2-mi b,[data-theme=dark] .lb2-pc,[data-theme=dark] .lb2-ttl,[data-theme=dark] .lb2-who b{color:#e6f1f4}
 [data-theme=dark] .lb2-card .lb-note,[data-theme=dark] .lb2-mi span,[data-theme=dark] .lb2-rk span,[data-theme=dark] .lb2-sl,[data-theme=dark] .lb2-ss,[data-theme=dark] .lb2-who small,[data-theme=dark] .lb2-pt small,[data-theme=dark] .lb2-n{color:#9db6c0}
-[data-theme=dark] .lb2-row{background:#0f232c;border-color:#21434f}[data-theme=dark] .lb2-menu button.on{background:#12353a;color:#5fd9cb}
+[data-theme=dark] .lb2-row{background:#0f232c;border-color:#21434f}
+.lb3-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}.lb3-va{background:none;border:0;color:#0f9b8e;font-weight:700;font-size:15px;cursor:pointer;padding:4px 2px}.lb3-va span{font-size:17px}
+.lb3-me{display:flex;align-items:center;justify-content:space-between;background:#dff5f2;border:1px solid #a9e0d8;border-radius:14px;padding:13px 14px;margin-bottom:6px;color:#0F2A3F}.lb3-mt{display:flex;align-items:center;gap:8px;font-weight:700;color:#0F2A3F}.lb3-mt svg{color:#0f9b8e}.lb3-mr{display:flex;align-items:center;gap:8px}.lb3-mr b{font-size:20px;color:#0f9b8e}.lb3-mr i{font-style:normal;font-weight:700;font-size:13px;background:#c4ebe5;color:#0b7f74;padding:4px 10px;border-radius:999px}
+.lb3-row{display:flex;align-items:center;gap:10px;padding:14px 6px;border-bottom:1px solid rgba(15,110,140,.1)}.lb3-row:last-child{border-bottom:0}.lb3-row.me{background:rgba(18,165,148,.12);border-radius:12px;border-bottom-color:transparent}
+.lb3-ic{width:24px;display:flex;justify-content:center;color:#0f9b8e;flex:none}.lb3-row.top1 .lb3-ic{color:#e0a800}.lb3-row.top2 .lb3-ic{color:#8d9aa5}.lb3-row.top3 .lb3-ic{color:#c9771f}
+.lb3-n{min-width:34px;color:#4b6574;font-weight:600;font-size:15px}.lb3-who{flex:1;min-width:0;display:flex;flex-direction:column}.lb3-who b{font-size:17px;font-weight:600;color:#0F2A3F;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.lb3-who small{font-size:13px;color:#5d7686}
+.lb3-pt{font-weight:700;color:#0b7f74;background:#dff5f2;padding:6px 14px;border-radius:999px;font-size:15px;flex:none}
+[data-theme=dark] .lb3-me{background:#12353a;border-color:#21434f;color:#e6f1f4}[data-theme=dark] .lb3-mt{color:#e6f1f4}[data-theme=dark] .lb3-mr i,[data-theme=dark] .lb3-pt{background:#14444a;color:#6fe3d5}[data-theme=dark] .lb3-mr b,[data-theme=dark] .lb3-va{color:#5fd9cb}[data-theme=dark] .lb3-who b{color:#e6f1f4}[data-theme=dark] .lb3-who small,[data-theme=dark] .lb3-n{color:#9db6c0}[data-theme=dark] .lb3-row{border-bottom-color:#21434f}[data-theme=dark] .lb3-row.me{background:rgba(18,165,148,.2)}
+[data-theme=dark] .lb2-menu button.on{background:#12353a;color:#5fd9cb}
 @media(max-width:380px){.lb2-pod{gap:10px}.lb2-sc{font-size:22px}}
 /* my info */
 .mi-top{display:flex;align-items:center;gap:12px;margin:4px 0 12px}.mi-st{display:flex;flex-direction:column}.mi-st b{font-size:17px}.mi-st span{font-size:13px;color:var(--ink-soft)}
@@ -1390,7 +1398,7 @@ async function lbLoad(force) {
   try {
     lbSync(true);   // send my latest score in the background; do not wait for it
     const wk = lbWeek(), mo = lbMonth(), best = parseInt(lsGet('lb:best') || '0', 10), w = lbJSON('lb:wk', null), wp = w ? best - w.base : 0, m = lbJSON('lb:mo', null), mp = m ? best - m.base : 0;
-    const [top, weekTop, monthTop, r1, r2, r3] = await Promise.all([lbQuery('', 'leaderboard', 20), lbQuery('/weekly/' + wk, 'scores', 20), lbQuery('/weekly/' + mo, 'scores', 20),
+    const [top, weekTop, monthTop, r1, r2, r3] = await Promise.all([lbQuery('', 'leaderboard', 50), lbQuery('/weekly/' + wk, 'scores', 50), lbQuery('/weekly/' + mo, 'scores', 50),
       lbRankOf('', 'leaderboard', best).catch(() => null), lbRankOf('/weekly/' + wk, 'scores', wp).catch(() => null), lbRankOf('/weekly/' + mo, 'scores', mp).catch(() => null)]);
     lbState.top = top; lbState.weekTop = weekTop; lbState.monthTop = monthTop; lbState.rankAll = r1; lbState.rankWeek = r2; lbState.rankMonth = r3; lbState.at = Date.now();
     lsSet('lb:cache', JSON.stringify({ top, weekTop, monthTop, rankAll: r1, rankWeek: r2, rankMonth: r3, at: lbState.at }));
@@ -1426,28 +1434,27 @@ function leadersHTML() {
   const list = md === 'week' ? lbState.weekTop : md === 'month' ? lbState.monthTop : lbState.top;
   const rank = md === 'week' ? lbState.rankWeek : md === 'month' ? lbState.rankMonth : lbState.rankAll, myPts = md === 'week' ? wp : md === 'month' ? mp : best;
   const myName = (mxqName() || lsGet('lb:name') || 'Student');
-  const sub = r => md === 'all' && r.answered ? Math.round(100 * r.correct / r.answered) + '% accuracy &bull; ' + r.answered + ' questions' : (md === 'all' ? '' : 'earned ' + (md === 'week' ? 'this week' : 'this month'));
+  const sub = r => md === 'all' && r.answered ? Math.round(100 * r.correct / r.answered) + '% &bull; ' + r.answered + ' questions' : (md === 'all' ? '' : 'earned ' + (md === 'week' ? 'this week' : 'this month'));
   const svgCal = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>';
   let h = `<div class="lb2"><div class="lb2-head"><h2>&#127942; Leaderboard</h2><p>Track your progress, compare scores, and climb the rankings with every practice session.</p></div>`;
   h += `<div class="lb2-dd"><button class="lb2-ddb" id="lbDD">${svgCal}<b>${LB_MODES[md]}</b><svg class="lb2-chev ${lbState.dd ? 'up' : ''}" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></button>`;
   if (lbState.dd) h += `<div class="lb2-menu">${Object.keys(LB_MODES).map(k => `<button class="${k === md ? 'on' : ''}" data-lbmode="${k}"><i>${k === md ? '&#10003;' : ''}</i>${LB_MODES[k]}</button>`).join('')}</div>`;
   h += `</div>`;
-  h += `<div class="lb2-card lb2-mine"><div class="lb2-cap">&#127919; Your Current Rank</div><div class="lb2-mrow"><div class="lb2-av big">${escapeHtml(lbInit(myName))}</div><div class="lb2-mi"><b>${escapeHtml(myName)}</b><span>Total Score: ${myPts}</span><span>${LB_MODES[md]} / Medixella</span></div><div class="lb2-rk"><strong>${rank ? '#' + rank : '...'}</strong><span>Current Rank</span></div></div></div>`;
   if (lbState.err === 'offline') h += `<div class="lb2-card"><p class="lb-note">You are offline. Connect to the internet to see the leaderboard.</p></div>`;
   else if (lbState.err) h += `<div class="lb2-card"><p class="lb-note">${escapeHtml(lbState.err)}</p><button class="ai-go" id="lbRetry">Try again</button></div>`;
   else if (lbState.loading && !list) h += `<div class="lb2-card lb2-wait"><div class="lb2-clock"><svg viewBox="0 0 64 64" width="64" height="64"><circle cx="32" cy="32" r="28" fill="none" stroke="currentColor" stroke-width="4" opacity=".25"/><circle cx="32" cy="32" r="28" fill="none" stroke="#C9A24B" stroke-width="4" stroke-dasharray="40 140" stroke-linecap="round" class="lb2-ring"/><path class="lb2-hh" d="M32 32V19" stroke="currentColor" stroke-width="4" stroke-linecap="round"/><path class="lb2-mh" d="M32 32V13" stroke="#0F6E56" stroke-width="3" stroke-linecap="round"/></svg></div><p class="lb-note"><b>Please wait&hellip;</b><br>Loading the top students</p></div>`;
   else if (list && !list.length) h += `<div class="lb2-card"><p class="lb-note">No one has joined yet. Be the first!</p></div>`;
   else if (list) {
-    const meta = [['#1', 'crown', 'gold'], ['#2', 'medal', 'silver'], ['#3', 'ribbon', 'bronze']];
-    const ico = { crown: '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"><path d="M3 18h18M4 8l4 4 4-7 4 7 4-4-2 10H6z"/></svg>', medal: '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"><path d="M8 3l4 6 4-6M7 3h10l-3 6M12 21a5 5 0 100-10 5 5 0 000 10z"/></svg>', ribbon: '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"><circle cx="12" cy="9" r="5.5"/><path d="M8.5 13.5L7 21l5-3 5 3-1.5-7.5"/></svg>' };
-    h += `<div class="lb2-pod">` + list.slice(0, 3).map((r, i) => `<div class="lb2-pc ${meta[i][2]} ${r.uid === me ? 'me' : ''}"><div class="lb2-bar"></div><div class="lb2-ic">${ico[meta[i][1]]}</div><div class="lb2-pn">${meta[i][0]}</div><div class="lb2-av big">${escapeHtml(lbInit(r.name))}</div><div class="lb2-nm">${escapeHtml(r.name)}</div><div class="lb2-sc">${r.points}</div><div class="lb2-sl">Total Score</div><div class="lb2-ss">${sub(r)}</div></div>`).join('') + `</div>`;
-    if (list.length > 3) {
-      const rest = list.slice(3), rows = lbState.all ? rest : rest.slice(0, 10);
-      h += `<div class="lb2-card"><div class="lb2-ttl"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6M16 4.8a3.5 3.5 0 010 6.4M18 14.3c2 .7 3.5 2.4 3.5 5.2"/></svg>Top Students</div>`;
-      h += rows.map((r, i) => `<div class="lb2-row ${r.uid === me ? 'me' : ''}"><span class="lb2-n">#${i + 4}</span><div class="lb2-av">${escapeHtml(lbInit(r.name))}</div><div class="lb2-who"><b>${escapeHtml(r.name)}</b><small>${sub(r)}</small></div><div class="lb2-pt"><b>${r.points}</b><small>Score</small></div><span class="lb2-st">&#9734;</span></div>`).join('');
-      if (rest.length > 10) h += `<button class="link-btn" id="lbMore" style="margin-top:8px">${lbState.all ? 'Show top 10' : 'View all'}</button>`;
-      h += `</div>`;
-    }
+    const sv = (p) => `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round">${p}</svg>`;
+    const ico = [sv('<path d="M3 18h18M4 8l4 4 4-7 4 7 4-4-2 10H6z"/>'), sv('<path d="M8 3l4 6 4-6M7 3h10l-3 6M12 21a5 5 0 100-10 5 5 0 000 10z"/>'), sv('<circle cx="12" cy="9" r="5.5"/><path d="M8.5 13.5L7 21l5-3 5 3-1.5-7.5"/>')];
+    const trophy = sv('<path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 01-10 0zM17 5h3v2a3 3 0 01-3 3M7 5H4v2a3 3 0 003 3"/>');
+    const rows = lbState.all ? list.slice(0, 50) : list.slice(0, 10);
+    h += `<div class="lb2-card lb3"><div class="lb3-top"><div class="lb2-ttl" style="margin:0">${trophy}${lbState.all ? 'Top 50 Students' : 'Top Students'}</div>`;
+    if (lbState.all) h += `<button class="lb3-va" id="lbMore">&#8592; Top 10</button>`;
+    else if (list.length > 10) h += `<button class="lb3-va" id="lbMore">View All <span>&#8594;</span></button>`;
+    h += `</div><div class="lb3-me"><span class="lb3-mt"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5"/></svg>Your Rank</span><span class="lb3-mr"><b>${rank ? '#' + rank : '...'}</b><i>${myPts} pts</i></span></div>`;
+    h += rows.map((r, i) => `<div class="lb3-row ${r.uid === me ? 'me' : ''} ${i < 3 ? 'top' + (i + 1) : ''}"><span class="lb3-ic">${i < 3 ? ico[i] : trophy}</span><span class="lb3-n">#${i + 1}</span><div class="lb3-who"><b>${escapeHtml(r.name)}</b><small>${sub(r)}</small></div><span class="lb3-pt">${r.points}</span></div>`).join('');
+    h += `</div>`;
   }
   h += `<div class="lb-foot">${lbState.loading && list ? '<span class="lb2-upd">Updating&hellip;</span> ' : ''}Points: 1 for each question answered + 2 more for each correct one. You are on the board with your name. Change it in Settings &gt; My info.</div>`;
   return h + `</div>` + tabbarHTML('leaders');
