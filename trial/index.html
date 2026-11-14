@@ -1392,7 +1392,7 @@ async function lbRankOf(parent, coll, pts) {
 function lbCacheRead() {
   if (lbState.top) return;
   const c = lbJSON('lb:cache', null);
-  if (c && c.top && c.v === 50) { lbState.top = c.top; lbState.weekTop = c.weekTop; lbState.monthTop = c.monthTop; lbState.rankAll = c.rankAll; lbState.rankWeek = c.rankWeek; lbState.rankMonth = c.rankMonth; lbState.at = c.at || 0; }
+  if (c && c.top && c.v === 20) { lbState.top = c.top; lbState.weekTop = c.weekTop; lbState.monthTop = c.monthTop; lbState.rankAll = c.rankAll; lbState.rankWeek = c.rankWeek; lbState.rankMonth = c.rankMonth; lbState.at = c.at || 0; }
 }
 async function lbLoad(force) {
   lbCacheRead();
@@ -1403,10 +1403,10 @@ async function lbLoad(force) {
   try {
     lbSync(true);   // send my latest score in the background; do not wait for it
     const wk = lbWeek(), mo = lbMonth(), best = parseInt(lsGet('lb:best') || '0', 10), w = lbJSON('lb:wk', null), wp = w ? best - w.base : 0, m = lbJSON('lb:mo', null), mp = m ? best - m.base : 0;
-    const [top, weekTop, monthTop, r1, r2, r3] = await Promise.all([lbQuery('', 'leaderboard', 50), lbQuery('/weekly/' + wk, 'scores', 50), lbQuery('/weekly/' + mo, 'scores', 50),
+    const [top, weekTop, monthTop, r1, r2, r3] = await Promise.all([lbQuery('', 'leaderboard', 20), lbQuery('/weekly/' + wk, 'scores', 20), lbQuery('/weekly/' + mo, 'scores', 20),
       lbRankOf('', 'leaderboard', best).catch(() => null), lbRankOf('/weekly/' + wk, 'scores', wp).catch(() => null), lbRankOf('/weekly/' + mo, 'scores', mp).catch(() => null)]);
     lbState.top = top; lbState.weekTop = weekTop; lbState.monthTop = monthTop; lbState.rankAll = r1; lbState.rankWeek = r2; lbState.rankMonth = r3; lbState.at = Date.now();
-    lsSet('lb:cache', JSON.stringify({ top, weekTop, monthTop, rankAll: r1, rankWeek: r2, rankMonth: r3, at: lbState.at, v: 50 }));
+    lsSet('lb:cache', JSON.stringify({ top, weekTop, monthTop, rankAll: r1, rankWeek: r2, rankMonth: r3, at: lbState.at, v: 20 }));
   } catch (e) { lbState.err = lbState.top ? '' : (/query 40[13]|rank 40[13]/.test(e.message) ? 'Leaderboard is not ready yet (database rules).' : 'Could not load the leaderboard. Check your internet and try again.'); }
   lbState.loading = false; if (currentScreen === 'leaders') render(); else if (currentScreen === 'home') homeMedalFill();
 }
@@ -1453,8 +1453,8 @@ function leadersHTML() {
     const sv = (p) => `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round">${p}</svg>`;
     const ico = [sv('<path d="M3 18h18M4 8l4 4 4-7 4 7 4-4-2 10H6z"/>'), sv('<path d="M8 3l4 6 4-6M7 3h10l-3 6M12 21a5 5 0 100-10 5 5 0 000 10z"/>'), sv('<circle cx="12" cy="9" r="5.5"/><path d="M8.5 13.5L7 21l5-3 5 3-1.5-7.5"/>')];
     const trophy = sv('<path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 01-10 0zM17 5h3v2a3 3 0 01-3 3M7 5H4v2a3 3 0 003 3"/>');
-    const rows = lbState.all ? list.slice(0, 50) : list.slice(0, 10);
-    h += `<div class="lb2-card lb3"><div class="lb3-top"><div class="lb2-ttl" style="margin:0">${trophy}${lbState.all ? 'Top 50 Students' : 'Top Students'}</div>`;
+    const rows = lbState.all ? list.slice(0, 20) : list.slice(0, 10);
+    h += `<div class="lb2-card lb3"><div class="lb3-top"><div class="lb2-ttl" style="margin:0">${trophy}${lbState.all ? 'Top 20 Students' : 'Top Students'}</div>`;
     if (lbState.all) h += `<button class="lb3-va" id="lbMore">&#8592; Top 10</button>`;
     else if (list.length > 10) h += `<button class="lb3-va" id="lbMore">View All <span>&#8594;</span></button>`;
     h += `</div><div class="lb3-me"><span class="lb3-mt"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5"/></svg>Your Rank</span><span class="lb3-mr"><b>${rank ? '#' + rank : '...'}</b><i>${myPts} pts</i></span></div>`;
@@ -1546,7 +1546,7 @@ function loadAllFlashcards() {
 }
 
 async function ensureLoaded() {
-  if (QBANK.length === 0) { QBANK = loadAllQuestions(); await accQcStart(); }
+  if (QBANK.length === 0) { QBANK = loadAllQuestions(); await accQcStart(); setTimeout(accPrefetch, 5000); }
   if (FLASHCARDS.length === 0) FLASHCARDS = loadAllFlashcards();
 }
 
@@ -1883,7 +1883,7 @@ function showAccount(st) {
 // Settings: account line, devices, log out, delete my account
 function accSettingsHTML() {
   if (!MXQ_ACCT) return '';
-  return `<div class="lic-line">Signed in as <b>${lsGet('aemail') || ''}</b> &middot; <a href="#" data-acc="devices">My devices</a> &middot; <a href="#" data-acc="out">Log out</a> &middot; <a href="#" data-acc="del">Delete my account</a></div>`;
+  return `<div class="lic-line">Signed in as <b>${lsGet('aemail') || ''}</b> &middot; <a href="#" data-acc="devices">My devices</a> &middot; <a href="#" data-acc="out">Log out</a> &middot; <a href="#" data-acc="del">Delete my account</a></div><div class="lic-line" id="offSt" style="margin-top:6px">${accOffText()}</div>`;
 }
 document.addEventListener('click', async e => {
   const a = e.target.closest && e.target.closest('[data-acc]'); if (!a) return; e.preventDefault();
@@ -2033,6 +2033,37 @@ async function accQcStart() {
   if (!ACC_QLOADED) { ACC_QMEM = await accQcLoadAll(); ACC_QLOADED = true; }
   for (const q of QBANK) if (q.stub) accTryCache(q);
 }
+// ---- Save everything on the phone so the whole app works with no internet (questions, mock tests, PDFs) ----
+let ACC_PF = { run: false, total: 0, done: 0, fail: '' };
+function accPfCount() { const st = QBANK.filter(q => q.stub && !accTryCache(q)).length; return { left: st, total: QBANK.length }; }
+async function accPrefetch() {
+  if (!MXQ_ACCT || ACC_PF.run || !navigator.onLine || !QBANK.length) return;
+  ACC_PF.run = true; ACC_PF.fail = '';
+  try {
+    for (let guard = 0; guard < 2000; guard++) {
+      if (!navigator.onLine || !MXQ_ACCT) break;
+      const need = QBANK.filter(q => q.stub && !accTryCache(q) && !ACC_FLY.has(q.id)).slice(0, 40);
+      if (!need.length) break;
+      const p = accHydrate1(need); need.forEach(q => ACC_FLY.set(q.id, p));
+      const res = await p; need.forEach(q => ACC_FLY.delete(q.id));
+      if (!res.ok) { ACC_PF.fail = res.reason || 'net'; break; }
+      await new Promise(r => setTimeout(r, 150));
+    }
+    // lesson / sources PDFs
+    const pv = window.__PDF_V__ || {};
+    for (const id of Object.keys(pv)) { if (!navigator.onLine || !MXQ_ACCT) break; if (!(window.__PDFR__ || {})[id] && !(ACC_QMEM['p:' + id] && ACC_QMEM['p:' + id].v === pv[id])) { const ok = await accFetchPdf(id, true); if (!ok) break; } }
+  } catch (e) {}
+  ACC_PF.run = false;
+  if (currentScreen === 'settings') { const e = document.getElementById('offSt'); if (e) e.innerHTML = accOffText(); }
+}
+function accOffText() {
+  const c = accPfCount(), pv = window.__PDF_V__ || {}, pl = Object.keys(pv).filter(id => !(ACC_QMEM['p:' + id] && ACC_QMEM['p:' + id].v === pv[id])).length;
+  if (ACC_PF.run) return 'Saving for offline&hellip; ' + (c.total - c.left).toLocaleString() + ' of ' + c.total.toLocaleString() + ' questions saved';
+  if (!c.left && !pl) return '&#10003; Everything is saved on this device. The app works fully offline.';
+  return (c.total - c.left).toLocaleString() + ' of ' + c.total.toLocaleString() + ' questions saved for offline. ' + (navigator.onLine ? '<a href="#" data-off="1">Save the rest now</a>' : 'Connect to the internet to save the rest.');
+}
+document.addEventListener('click', e => { const a = e.target.closest && e.target.closest('[data-off]'); if (!a) return; e.preventDefault(); accPrefetch(); const t = document.getElementById('offSt'); if (t) { t.innerHTML = accOffText(); const iv = setInterval(() => { const x = document.getElementById('offSt'); if (!x) return clearInterval(iv); x.innerHTML = accOffText(); if (!ACC_PF.run) clearInterval(iv); }, 1500); } });
+window.addEventListener('online', () => setTimeout(accPrefetch, 3000));
 async function accDecrypt(buf, keyHex, aad, gz) {
   if (String.fromCharCode(buf[0], buf[1], buf[2], buf[3]) !== 'MXQ1') throw new Error('format');
   const ck = await crypto.subtle.importKey('raw', accHexBytes(keyHex), 'AES-GCM', false, ['decrypt']);
@@ -2123,14 +2154,14 @@ render = function () {
   return _accRender.apply(this, arguments);
 };
 // PDFs: same idea, one small file each
-async function accFetchPdf(id) {
+async function accFetchPdf(id, quiet) {
   if ((window.__PDFR__ || {})[id]) return true;
   const v = (window.__PDF_V__ || {})[id], e = ACC_QMEM['p:' + id];
   if (!ACC_QLOADED) { ACC_QMEM = await accQcLoadAll(); ACC_QLOADED = true; }
   const hit = ACC_QMEM['p:' + id];
   window.__PDFR__ = window.__PDFR__ || {};
   if (hit && hit.v === v && hit.c) { window.__PDFR__[id] = hit.c; return true; }
-  if (!navigator.onLine) { mxqToast('Connect to the internet once to open this PDF'); return false; }
+  if (!navigator.onLine) { if (!quiet) mxqToast('Connect to the internet once to open this PDF'); return false; }
   try {
     const auth = await accLoadFb(); const u = auth.currentUser || await accUser(auth);
     if (!u) { mxqToast('Please log in again'); return false; }
