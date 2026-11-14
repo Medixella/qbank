@@ -2036,13 +2036,24 @@ async function accQcStart() {
 // ---- Save everything on the phone so the whole app works with no internet (questions, mock tests, PDFs) ----
 let ACC_PF = { run: false, total: 0, done: 0, fail: '' };
 function accPfCount() { const st = QBANK.filter(q => q.stub && !accTryCache(q)).length; return { left: st, total: QBANK.length }; }
+async function accQuota() {
+  try {
+    const auth = await accLoadFb(); const u = auth.currentUser || await accUser(auth); if (!u) return null;
+    const r = await accCall('qkeys', { idToken: await u.getIdToken(), deviceId: mxqDeviceId(), ids: [] });
+    return r && r.state === 'ok' && r.limit ? { used: r.used || 0, limit: r.limit } : null;
+  } catch (e) { return null; }
+}
 async function accPrefetch() {
   if (!MXQ_ACCT || ACC_PF.run || !navigator.onLine || !QBANK.length) return;
   ACC_PF.run = true; ACC_PF.fail = '';
   try {
     for (let guard = 0; guard < 2000; guard++) {
       if (!navigator.onLine || !MXQ_ACCT) break;
-      const need = QBANK.filter(q => q.stub && !accTryCache(q) && !ACC_FLY.has(q.id)).slice(0, 40);
+      // never use up the student's daily allowance in the background: keep 40% of it for the questions they open themselves
+      const qt = await accQuota(); if (!qt) break;
+      const room = (qt.limit - qt.used) - Math.round(qt.limit * 0.4);
+      if (room < 1) { ACC_PF.fail = 'reserve'; break; }
+      const need = QBANK.filter(q => q.stub && !accTryCache(q) && !ACC_FLY.has(q.id)).slice(0, Math.min(40, room));
       if (!need.length) break;
       const p = accHydrate1(need); need.forEach(q => ACC_FLY.set(q.id, p));
       const res = await p; need.forEach(q => ACC_FLY.delete(q.id));
