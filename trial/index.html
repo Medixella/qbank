@@ -1453,10 +1453,8 @@ function leadersHTML() {
     const sv = (p) => `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round">${p}</svg>`;
     const ico = [sv('<path d="M3 18h18M4 8l4 4 4-7 4 7 4-4-2 10H6z"/>'), sv('<path d="M8 3l4 6 4-6M7 3h10l-3 6M12 21a5 5 0 100-10 5 5 0 000 10z"/>'), sv('<circle cx="12" cy="9" r="5.5"/><path d="M8.5 13.5L7 21l5-3 5 3-1.5-7.5"/>')];
     const trophy = sv('<path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 01-10 0zM17 5h3v2a3 3 0 01-3 3M7 5H4v2a3 3 0 003 3"/>');
-    const rows = lbState.all ? list.slice(0, 20) : list.slice(0, 10);
-    h += `<div class="lb2-card lb3"><div class="lb3-top"><div class="lb2-ttl" style="margin:0">${trophy}${lbState.all ? 'Top 20 Students' : 'Top Students'}</div>`;
-    if (lbState.all) h += `<button class="lb3-va" id="lbMore">&#8592; Top 10</button>`;
-    else if (list.length > 10) h += `<button class="lb3-va" id="lbMore">View All <span>&#8594;</span></button>`;
+    const rows = list.slice(0, 10);
+    h += `<div class="lb2-card lb3"><div class="lb3-top"><div class="lb2-ttl" style="margin:0">${trophy}Top 10 Students</div>`;
     h += `</div><div class="lb3-me"><span class="lb3-mt"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5"/></svg>Your Rank</span><span class="lb3-mr"><b>${rank ? '#' + rank : '...'}</b><i>${myPts} pts</i></span></div>`;
     h += rows.map((r, i) => `<div class="lb3-row ${r.uid === me ? 'me' : ''} ${i < 3 ? 'top' + (i + 1) : ''}"><span class="lb3-ic">${i < 3 ? ico[i] : trophy}</span><span class="lb3-n">#${i + 1}</span><div class="lb3-who"><b>${escapeHtml(r.name)}</b><small>${sub(r)}</small></div><span class="lb3-pt">${r.points}</span></div>`).join('');
     h += `</div>`;
@@ -3035,7 +3033,6 @@ function todayPanelHTML(stats, done) {
       <button class="pk-top" data-pickup="1"><span class="pk-ic">&#9654;</span><span class="pk-tx"><b>Pick up where you left off</b><small>${loadBlocks().length} ongoing &middot; ${(stats.sessions || []).length} completed</small></span><span class="pk-go">&#8250;</span></button>
     </div>
     <div class="rank-bar"><i style="width:${rk.pct}%"></i></div>
-    <div class="rank-sub"><span>&#127942; ${rk.name}</span></div>
     <div class="today-actions">
       <button class="t-btn gold" id="daily10">&#9889; Daily 10<small>Same set every day &middot; 5 min</small></button>
       <button class="t-btn navy" id="fixWeak">&#127919; ${weak ? 'Fix ' + escapeHtml(weak.subject) : 'Fix weak spots'}<small>${weak ? weak.wrong + ' missed &middot; ' + weak.acc + '% accuracy' : 'Redo what you got wrong'}</small></button>
@@ -3116,7 +3113,6 @@ function homeHTML() {
   </div>
   <div class="mx-welcome">
     <div class="mxw-t"><small>${_nm ? 'Welcome back' : 'Welcome'}</small><h1>${_nm ? escapeHtml(_nm) : 'Medixella'}<span id="mxMedalIc">${mxMedalHTML().icon}</span></h1><div id="mxMedalLn">${mxMedalHTML().line}</div></div>
-    <div class="rank-chip">&#127942; ${mxqRank(done).name}</div>
   </div>
   <div class="mx-gold" id="mxGoldNote" style="display:none"></div>
   <div class="home-stats">
