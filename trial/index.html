@@ -282,6 +282,11 @@ button{font-family:inherit;}
 .lock-screen{min-height:100vh;box-sizing:border-box;padding:28px 20px 24px;background:radial-gradient(120% 80% at 0% 0%,#1d5a73 0%,transparent 55%),linear-gradient(160deg,#0a2133,var(--navy) 50%,var(--navy-2));color:#fff;text-align:center}
 .lock-screen .logo-card{padding:12px 20px}.lock-screen .logo-card img{height:48px}
 .lock-screen h2{font-size:24px;margin:22px 0 6px;font-weight:800}.lock-sub{font-size:13.5px;color:#cfe0e6;line-height:1.5;margin:0 auto 6px;max-width:340px}
+.pay-note{margin:16px auto 0;max-width:340px;padding:14px 16px;border-radius:14px;background:rgba(250,204,21,.14);border:2px solid #facc15;color:#fff;font-size:15px;line-height:1.5}.pay-note b{display:block;color:#fde047;font-size:16px;margin-bottom:4px}.pay-note u{text-decoration:none;font-weight:800;color:#fde047}
+.pay-wait{margin:12px auto 0;max-width:340px;padding:11px 14px;border-radius:12px;background:rgba(94,234,212,.15);border:1px solid #5eead4;color:#c8fff5;font-size:14px;font-weight:600}
+.pay-btn{background:linear-gradient(90deg,#f59e0b,#d97706)!important}.pay-box{max-width:340px;margin:12px auto 0;padding:14px;border-radius:14px;background:rgba(255,255,255,.09);border:1px solid rgba(255,255,255,.2);text-align:left}
+.pay-h{font-size:11px;letter-spacing:1.6px;font-weight:700;color:#5eead4;text-transform:uppercase;margin:4px 0 8px}.pay-plans{display:flex;gap:8px;margin-bottom:12px}.pay-plans div{flex:1;text-align:center;background:rgba(255,255,255,.1);border-radius:10px;padding:9px 4px}.pay-plans b{display:block;font-size:13px}.pay-plans span{display:block;font-size:17px;font-weight:800;color:#5eead4;margin-top:2px}
+.pay-bank div{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid rgba(255,255,255,.12)}.pay-bank small{color:#cfe0e6;font-size:12px}.pay-bank b{font-size:15px;letter-spacing:.3px}
 .lock-step{margin:18px 0 8px;font-size:11px;letter-spacing:1.8px;font-weight:700;color:#5eead4;text-transform:uppercase}
 .lock-id{display:inline-block;font:800 30px/1 ui-monospace,Menlo,Consolas,monospace;letter-spacing:3px;background:rgba(255,255,255,.1);border:1px dashed rgba(94,234,212,.6);border-radius:14px;padding:14px 20px;user-select:all}
 .lock-row{display:flex;gap:10px;justify-content:center;margin-top:12px;flex-wrap:wrap}
@@ -1813,6 +1818,7 @@ function accHexBytes(h) { const o = new Uint8Array(h.length / 2); for (let i = 0
 function accNice(ms) { return new Date(ms).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }); }
 
 function showAccount(st) {
+  const tapped = !!window.__accTap; window.__accTap = false;
   st = st || { state: 'login' };
   const app = document.getElementById('app'), env = mxqEnv();
   const email = st.email || lsGet('aemail') || '';
@@ -1831,7 +1837,7 @@ function showAccount(st) {
     }
   } else if (st.state === 'pending') {
     title = 'Account created'; sub = `You are signed in as <b>${email}</b>. Your account is waiting to be activated.`;
-    body = `<div class="lock-step">To activate, message Medixella</div><p class="lock-sub">Send your <b>email</b> and your <b>payment screenshot</b>. We will activate you, then tap <b>Check again</b>.</p><div class="lock-row">${igB}</div><button class="lock-btn main" id="accRetry" style="margin-top:12px">Check again</button><div class="lock-err" id="accErr"></div>` + out;
+    body = `<div class="pay-note"><b>To activate, pay and message Medixella</b>After payment, send your <u>payment screenshot</u> and your <u>email</u>. We will activate your account.</div>${tapped ? '<div class="pay-wait">We\u2019ll activate your access as soon as we confirm the payment.</div>' : ''}<button class="lock-btn main pay-btn" id="payBtn" style="margin-top:12px">Method of payment</button><div class="pay-box" id="payBox" style="display:none"><div class="pay-h">Subscription plans</div><div class="pay-plans"><div><b>1 month</b><span>Rs 500</span></div><div><b>2 months</b><span>Rs 750</span></div><div><b>3 months</b><span>Rs 1000</span></div></div><div class="pay-h">Bank account</div><div class="pay-bank"><div><small>Bank</small><b>HBL</b></div><div><small>Account title</small><b>AMMAAR</b></div><div><small>Account number</small><b id="payAcc">25557000160903</b></div></div><button class="lock-btn ghost" id="payCopy" style="margin-top:10px">Copy account number</button><p class="lock-sub" style="margin-top:10px">After payment, send your payment screenshot. We will activate your account.</p></div><div class="lock-row">${igB}</div><button class="lock-btn main" id="accRetry" style="margin-top:12px">Open</button><div class="lock-err" id="accErr"></div>` + out;
   } else if (st.state === 'expired') {
     title = 'Subscription ended'; sub = `Your access ended on <b>${mxqNiceDate(st.exp)}</b>. Message Medixella to renew. Once you are extended, tap <b>Check again</b> (online).`;
     body = `<div class="lock-row">${igB}</div><button class="lock-btn main" id="accRetry" style="margin-top:12px">Check again</button><div class="lock-err" id="accErr"></div>` + out;
@@ -1848,7 +1854,9 @@ function showAccount(st) {
   app.innerHTML = `<div class="lock-screen"><div class="logo-wrap" style="margin-top:6px"><div class="logo-card"><img src="${LOGO_URI}" alt="Medixella"></div></div><h2>${title}</h2><p class="lock-sub">${sub}</p>${body}${foot}</div>`;
   const $ = id => document.getElementById(id), err = m => { const e = $('accErr'); if (e) e.textContent = m; };
   const on = (id, f) => { const e = $(id); if (e) e.addEventListener('click', f); };
-  on('accOut', accLogout); on('accRetry', () => init());
+  on('accOut', accLogout); on('accRetry', () => { window.__accTap = (st.state === 'pending'); init(); });
+  on('payBtn', () => { const b = $('payBox'); b.style.display = b.style.display === 'none' ? 'block' : 'none'; });
+  on('payCopy', () => { try { navigator.clipboard.writeText('25557000160903'); $('payCopy').textContent = 'Copied'; } catch (e) { $('payCopy').textContent = '25557000160903'; } });
   on('accGoogle', async () => {
     err('');
     try { const a = await accLoadFb(); await a.signInWithPopup(new firebase.auth.GoogleAuthProvider()); init(); }

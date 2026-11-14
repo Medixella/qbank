@@ -121,6 +121,10 @@ footer small{color:#8fa4ae;font-size:14px}
 .pr ul{list-style:none;padding:0;margin:0}.pr li{padding:7px 0 7px 32px;position:relative;font-size:16px;color:#EAF6F8}.pr li:before{content:"\2713";position:absolute;left:0;top:6px;width:22px;height:22px;border-radius:50%;background:#14B8A6;color:#06283A;font-weight:800;font-size:13px;text-align:center;line-height:22px}
 .prn{text-align:center;color:var(--soft);font-size:14px;margin-top:18px}
 @media(max-width:700px){.pr{grid-template-columns:1fr;padding:24px}.pr .amt{font-size:48px}}
+.ps{background:#fff;padding:30px 0 6px}.ps .box{max-width:980px;margin:-48px auto 0;position:relative;z-index:3;background:#fff;border:1px solid var(--line);border-radius:22px;padding:22px 24px;box-shadow:0 24px 50px -24px rgba(15,42,63,.45);display:flex;gap:22px;align-items:center;flex-wrap:wrap;justify-content:center}
+.ps .t{flex:1 1 200px}.ps .t small{color:var(--teal);font-weight:800;font-size:12px;letter-spacing:1.4px;text-transform:uppercase}.ps .t b{display:block;font-size:20px;color:var(--ink);margin-top:4px}
+.ps .pl3{display:flex;gap:12px;flex:2 1 420px}.ps .pl3 div{flex:1;text-align:center;border:2px solid var(--line);border-radius:14px;padding:12px 6px}.ps .pl3 div.best{border-color:var(--accent);background:#E8F8F5}.ps .pl3 span{display:block;font-size:13px;color:var(--soft);font-weight:600}.ps .pl3 b{display:block;font-size:24px;color:var(--navy);margin-top:2px}.ps .pl3 em{display:block;font-style:normal;font-size:11px;color:var(--teal);font-weight:700;margin-top:2px}
+@media(max-width:700px){.ps .box{margin-top:-30px;padding:18px}.ps .pl3{flex-wrap:wrap}.ps .pl3 div{flex:1 1 90px}}
 </style></head><body>
 
 <div class="ann" id="ann"><div class="wrap"><span>&#10024;</span><span><b>New:</b> First, Second and Third Year MBBS are now in the Qbank.</span><a href="#years">See the decks</a><button class="x" id="annx" aria-label="Close">&times;</button></div></div>
@@ -140,6 +144,12 @@ footer small{color:#8fa4ae;font-size:14px}
   <div class="note">No sign-up. Opens in your browser. Free trial lasts 24 hours.<br><a href="#" data-install style="color:#8CF3E3;text-decoration:underline;font-weight:600;display:inline-block;margin-top:8px">Already have access? Open the app</a></div>
   <div class="stats"><div><b>13,000+</b><span>Questions</span></div><div><b>Every option</b><span>explained</span></div><div><b>Mock tests</b><span>with your own timer</span></div><div><b>Offline</b><span>once opened</span></div></div>
 </div></div>
+
+<section class="ps"><div class="wrap"><div class="box">
+  <div class="t"><small>Subscription plans</small><b>Full access to all 13,000+ questions</b></div>
+  <div class="pl3"><div><span>1 month</span><b>Rs 500</b></div><div><span>2 months</span><b>Rs 750</b><em>Save Rs 250</em></div><div class="best"><span>3 months</span><b>Rs 1000</b><em>Save Rs 500</em></div></div>
+  <button class="btn acc lg" data-access>Get access</button>
+</div></div></section>
 
 <section id="inside" class="shots"><div class="wrap">
   <div class="eyebrow">A look inside</div><h2 class="sec-h">Clean, focused and made for exam revision</h2>
@@ -188,9 +198,9 @@ footer small{color:#8fa4ae;font-size:14px}
 
 <section id="pricing"><div class="wrap" style="text-align:center">
   <div class="eyebrow">Pricing</div><h2 class="sec-h" style="margin-left:auto;margin-right:auto">One simple plan for every year</h2>
-  <p class="sec-p" style="margin-left:auto;margin-right:auto">Try it free for 1 day, then unlock all 13,000+ questions for one low monthly price.</p>
+  <p class="sec-p" style="margin-left:auto;margin-right:auto">Try it free for 1 day, then unlock all 13,000+ questions: Rs 500 for 1 month, Rs 750 for 2 months or Rs 1000 for 3 months.</p>
   <div class="pr" style="text-align:left">
-    <div class="pl"><small>Full access</small><h3>Medixella Qbank</h3><div class="amt">Rs 500<span> / month</span></div><p>Use it on 2 devices with your progress synced.</p><button class="btn acc lg" data-access>Get full access</button></div>
+    <div class="pl"><small>Full access</small><h3>Medixella Qbank</h3><div class="amt">Rs 500<span> / month</span></div><p>Or 2 months for Rs 750 and 3 months for Rs 1000. Use it on 2 devices with your progress synced.</p><button class="btn acc lg" data-access>Get full access</button></div>
     <ul><li>13,000+ past-paper questions, 1st Year to Final Year</li><li>A clear explanation for every option</li><li>Unlimited mock tests and blocks</li><li>All one-page revision sheets</li><li>Progress tracking and leaderboard</li><li>New questions and decks added regularly</li></ul>
   </div>
   <div class="prn">Not sure yet? <a href="https://medixella.github.io/qbank/trial/" style="color:var(--teal);font-weight:700">Start the 1 Day free trial</a>: 50 free questions from each year.</div>
