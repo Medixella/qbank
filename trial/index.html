@@ -450,6 +450,25 @@ mark.hl-y{background:#fde047}mark.hl-o{background:#fdba74}mark.hl-g{background:#
 .ln-cv{position:absolute;pointer-events:none}.ln-cvh{z-index:4;opacity:.45;mix-blend-mode:multiply}.ln-cvp{z-index:5}
 .ls-tools .ln-b{padding:4px 9px;font-size:12px}.ln-hint:empty{display:none}.ls-tools{gap:4px;padding:5px 10px}.ln-tb{font-size:12px}.ln-pal{gap:8px}.ln-sz{width:26px;height:26px;border-radius:8px;border:1px solid var(--line);background:var(--paper);display:inline-flex;align-items:center;justify-content:center;padding:0;cursor:pointer}.ln-sz i{display:block;width:16px;background:var(--ink);border-radius:3px;min-height:2px}.ln-sz.on{border-color:#0F2A3F;box-shadow:0 0 0 3px rgba(201,162,74,.6)}
 .ls-tools .hl-sd{width:26px;height:26px}
+/* quiz tools: highlighter + settings buttons, size/bold, collapsible highlighter bar */
+.quiz-topbar{position:relative}
+.qtb{flex:none;width:34px;height:34px;border-radius:50%;border:none;background:rgba(255,255,255,.14);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0;transition:background .2s,transform .2s}
+.qtb.on{background:#fde047;color:#0F2A3F;transform:scale(1.06)}
+.qs-panel{position:absolute;right:10px;top:calc(100% + 8px);width:min(320px,calc(100vw - 20px));background:var(--card,#fff);color:var(--ink,#14232e);border:1px solid var(--line,#dde5e8);border-radius:16px;box-shadow:0 14px 40px rgba(0,0,0,.28);padding:14px 14px 10px;z-index:60;opacity:0;transform:translateY(-8px) scale(.98);pointer-events:none;visibility:hidden;transition:opacity .22s ease,transform .22s ease,visibility 0s .22s}
+.qs-panel.open{opacity:1;transform:none;pointer-events:auto;visibility:visible;transition:opacity .22s ease,transform .22s ease}
+.qs-h{font-size:11.5px;font-weight:800;letter-spacing:1.2px;text-transform:uppercase;color:var(--ink-soft,#5b6b74);margin:4px 0 8px}
+.qs-r{display:flex;align-items:center;gap:10px;margin-bottom:10px}.qs-r>span{width:38px;font-size:13px;font-weight:700;color:var(--ink-soft,#5b6b74)}.qs-r .qs-seg{flex:1}
+.qs-seg{display:flex;gap:6px;margin-bottom:12px}.qs-r .qs-seg{margin-bottom:0}
+.qs-seg button{flex:1;border:1.5px solid var(--line,#dde5e8);background:var(--card,#fff);color:var(--ink,#14232e);border-radius:10px;padding:9px 4px;font:600 14px inherit;font-family:inherit;cursor:pointer;transition:background .15s,color .15s}
+.qs-seg button.on{background:#0F2A3F;border-color:#0F2A3F;color:#fff}
+html[data-theme=dark] .qs-seg button.on{background:#5eead4;border-color:#5eead4;color:#06222b}
+.hl-wrap{max-height:0;opacity:0;overflow:hidden;transition:max-height .35s ease,opacity .3s ease}
+.hl-wrap.open{max-height:130px;opacity:1}
+.hl-wrap .hl-strip{margin-bottom:12px}
+html[data-qfs=M] .qstem{font-size:18.5px}html[data-qfs=M] .qopt .otext{font-size:16.2px}html[data-qfs=M] .explain-box,html[data-qfs=M] .explain-box p,html[data-qfs=M] .explain-box li{font-size:15.5px}
+html[data-qfs=L] .qstem{font-size:20.5px}html[data-qfs=L] .qopt .otext{font-size:18px}html[data-qfs=L] .explain-box,html[data-qfs=L] .explain-box p,html[data-qfs=L] .explain-box li{font-size:17px}
+html[data-qfs=XL] .qstem{font-size:23px}html[data-qfs=XL] .qopt .otext{font-size:20.5px}html[data-qfs=XL] .explain-box,html[data-qfs=XL] .explain-box p,html[data-qfs=XL] .explain-box li{font-size:19px}
+html[data-qbold="1"] .qstem,html[data-qbold="1"] .qopt .otext,html[data-qbold="1"] .explain-box p,html[data-qbold="1"] .explain-box li{font-weight:700}
 .hl-strip{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 12px;padding:8px 10px;background:var(--card);border:1px solid var(--line);border-radius:12px}
 .hl-lbl{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--ink-soft)}
 .hl-sd{width:28px;height:28px;border-radius:50%;border:2px solid rgba(0,0,0,.15);cursor:pointer;padding:0}
@@ -1128,6 +1147,21 @@ function hlApplyChoice(c, quiet) {
 }
 let hlActive = (function () { try { return lsGet('hlActive') || ''; } catch (e) { return ''; } })();
 function hlSetActive(c) { hlActive = c || ''; lsSet('hlActive', hlActive); hlStripSync(); hlHide(); }
+let qtHl = !!hlActive, qtSet = false;
+function qtApply() { document.querySelectorAll('[data-qt="hl"]').forEach(b => b.classList.toggle('on', qtHl)); document.querySelectorAll('[data-qt="set"]').forEach(b => b.classList.toggle('on', qtSet)); const p = document.getElementById('qsPanel'); if (p) p.classList.toggle('open', qtSet); const w = document.getElementById('hlWrap'); if (w) w.classList.toggle('open', qtHl); }
+document.addEventListener('click', e => {
+  if (typeof currentScreen === 'undefined' || currentScreen !== 'quiz') return;
+  const t = e.target.closest && e.target.closest('[data-qt],[data-qs-theme],[data-qs-fs],[data-qs-bold]');
+  if (!t) { if (qtSet && !(e.target.closest && e.target.closest('#qsPanel'))) { qtSet = false; qtApply(); } return; }
+  if (t.hasAttribute('data-qt')) { const k = t.getAttribute('data-qt'); if (k === 'hl') { qtHl = !qtHl; if (!qtHl && hlActive) hlSetActive(''); qtSet = false; } else { qtSet = !qtSet; } qtApply(); return; }
+  if (t.hasAttribute('data-qs-theme')) MXS.theme = t.getAttribute('data-qs-theme');
+  else if (t.hasAttribute('data-qs-fs')) MXS.fs = t.getAttribute('data-qs-fs');
+  else if (t.hasAttribute('data-qs-bold')) MXS.bold = t.getAttribute('data-qs-bold') === '1';
+  mxsSave(); mxsApply();
+  document.querySelectorAll('#qsPanel [data-qs-theme]').forEach(b => b.classList.toggle('on', (b.getAttribute('data-qs-theme') === 'dark') === (MXS.theme === 'dark')));
+  document.querySelectorAll('#qsPanel [data-qs-fs]').forEach(b => b.classList.toggle('on', b.getAttribute('data-qs-fs') === (MXS.fs || 'S')));
+  document.querySelectorAll('#qsPanel [data-qs-bold]').forEach(b => b.classList.toggle('on', (b.getAttribute('data-qs-bold') === '1') === !!MXS.bold));
+}, true);
 function hlStripSync() {
   document.querySelectorAll('[data-hls]').forEach(b => b.classList.toggle('on', b.getAttribute('data-hls') === hlActive));
   const h = document.getElementById('hlHint');
@@ -3619,6 +3653,15 @@ function quizHTML() {
     <div class="qcount">${session.idx+1}/${session.questions.length}</div>
     ${!session.finished && (session.mode==='timed' || mock) ? '<div class="timer" id="quizTimer">--:--</div>' : ''}
     ${mock ? '<button class="qpal" id="palBtn" title="Question list">&#9638;</button>' : ''}
+    <button class="qtb ${qtHl ? 'on' : ''}" data-qt="hl" aria-label="Highlighter" title="Highlighter"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l-6 6v3h9l3-3"/><path d="M22 12l-4.6 4.6a2 2 0 0 1-2.8 0l-5.2-5.2a2 2 0 0 1 0-2.8L14 4"/></svg></button>
+    <button class="qtb ${qtSet ? 'on' : ''}" data-qt="set" aria-label="Settings" title="Settings"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+    <div class="qs-panel ${qtSet ? 'open' : ''}" id="qsPanel">
+      <div class="qs-h">&#9728; Appearance</div>
+      <div class="qs-seg"><button class="${MXS.theme === 'dark' ? '' : 'on'}" data-qs-theme="light">&#9728; Day</button><button class="${MXS.theme === 'dark' ? 'on' : ''}" data-qs-theme="dark">&#9790; Night</button></div>
+      <div class="qs-h">T Typography</div>
+      <div class="qs-r"><span>Size</span><div class="qs-seg">${['S', 'M', 'L', 'XL'].map(z => `<button class="${(MXS.fs || 'S') === z ? 'on' : ''}" data-qs-fs="${z}">${z}</button>`).join('')}</div></div>
+      <div class="qs-r"><span>Bold</span><div class="qs-seg"><button class="${MXS.bold ? '' : 'on'}" data-qs-bold="0">Aa</button><button class="${MXS.bold ? 'on' : ''}" data-qs-bold="1" style="font-weight:800">Aa</button></div></div>
+    </div>
   </div>`;
   if (mock && session.showPalette) {
     html += `<div class="pal-overlay"><div class="pal-card"><div class="pal-head"><b>Questions</b><span>${answeredN} of ${session.questions.length} answered</span><button class="link-btn" id="palClose">Close</button></div><div class="pal-grid">`;
@@ -3634,7 +3677,7 @@ function quizHTML() {
   }
   const _ch = qChips(q);
   html += `<div class="qmeta"><span class="tag subj">${escapeHtml(_ch.subj)}</span><span class="tag sys">${escapeHtml(_ch.sys)}</span>${q.is_new ? '<span class="tag new">New</span>' : ''}</div>`;
-  html += `<div class="hl-strip"><span class="hl-lbl">Highlighter</span>${['y','o','g','p'].map(c => `<button class="hl-sd ${hlActive===c?'on':''}" data-hls="${c}" style="background:${HL_COLORS[c]}" aria-label="highlight colour"></button>`).join('')}<button class="hl-sd hl-se ${hlActive==='x'?'on':''}" data-hls="x" aria-label="eraser">&#10005;</button><span class="hl-hint" id="hlHint">${hlActive==='x' ? 'Eraser on: select highlighted text to remove it' : hlActive ? 'Select any text and it turns this colour' : 'Tap a colour, then select text'}</span></div>`;
+  html += `<div class="hl-wrap ${qtHl ? 'open' : ''}" id="hlWrap"><div class="hl-strip"><span class="hl-lbl">Highlighter</span>${['y','o','g','p'].map(c => `<button class="hl-sd ${hlActive===c?'on':''}" data-hls="${c}" style="background:${HL_COLORS[c]}" aria-label="highlight colour"></button>`).join('')}<button class="hl-sd hl-se ${hlActive==='x'?'on':''}" data-hls="x" aria-label="eraser">&#10005;</button><span class="hl-hint" id="hlHint">${hlActive==='x' ? 'Eraser on: select highlighted text to remove it' : hlActive ? 'Select any text and it turns this colour' : 'Tap a colour, then select text'}</span></div></div>`;
   html += `<p class="qstem">${escapeHtml(q.stem)}</p>`;
 
   html += `<div class="flag-row"><button class="flag-btn ${session.flags[q.id]?'flagged':''}" id="flagBtn">&#9873; ${session.flags[q.id]?'Flagged':'Flag for review'}</button></div>`;
@@ -4152,6 +4195,7 @@ const NEWS = [
   { id: 'n24', kind: 'content', date: '14 Nov 2026', title: 'Rapid revision PDFs updated', body: 'All 7 one-page rapid revision PDFs in Sources now say they are based on LUMHS past papers, and end with a page to scan and open Medixella, with our Instagram, WhatsApp and the subscription plans.' },
   { id: 'n25', kind: 'content', date: '15 Nov 2026', title: 'Community Medicine added to Third Year', body: 'Third Year MBBS now includes Community Medicine: 734 past-paper questions covering epidemiology, biostatistics, communicable and non-communicable diseases, nutrition, environment, demography, maternal and child health and the Pakistan health system. Every question names its past paper and textbook page, and explains every option.' },
   { id: 'n26', kind: 'content', date: '15 Nov 2026', title: 'Third Year modules re-ordered', body: 'Third Year MBBS now follows the LUMHS 2025-26 study guide: Foundation, Infectious Disease, Haematology, Respiratory, Cardiovascular, GIT & Liver, Endocrine, Renal, Reproductive, Musculoskeletal, Neuroscience, then Forensic Medicine and Community Medicine.' },
+  { id: 'n27', kind: 'study', date: '15 Nov 2026', title: 'Quiz tools: settings and highlighter', body: 'While solving, tap the menu button at the top right to switch Day or Night, make the text bigger (S, M, L, XL) or bold. Tap the highlighter button to open or close the colour bar.' },
 ];
 function newsSeen() { try { return JSON.parse(lsGet('newsSeen') || 'null'); } catch (e) { return null; } }
 function newsMark() { try { lsSet('newsSeen', JSON.stringify(NEWS.map(n => n.id))); } catch (e) {} }
@@ -4486,7 +4530,7 @@ function lnShareOpen(S, ch, tp) {
 
 /* ===== Settings: appearance (day / night / auto), eye comfort, dimmer, keep screen on ===== */
 const MXS_KEY = LSP + 'settings';
-let MXS = { theme: 'auto', warm: 0, dim: 0, awake: false };
+let MXS = { theme: 'auto', warm: 0, dim: 0, awake: false, fs: 'S', bold: false };
 try { Object.assign(MXS, JSON.parse(localStorage.getItem(MXS_KEY) || '{}')); } catch (e) {}
 function mxsSave() { try { localStorage.setItem(MXS_KEY, JSON.stringify(MXS)); } catch (e) {} }
 let mxsWake = null;
@@ -4497,6 +4541,7 @@ function mxsApply() {
   let w = document.getElementById('mxsWarm'), d = document.getElementById('mxsDim');
   if (!w) { w = document.createElement('div'); w.id = 'mxsWarm'; w.className = 'mxs-ov'; document.body.appendChild(w); d = document.createElement('div'); d.id = 'mxsDim'; d.className = 'mxs-ov'; document.body.appendChild(d); }
   w.style.background = 'rgba(255,140,30,' + (MXS.warm / 100 * 0.38).toFixed(3) + ')'; d.style.background = 'rgba(0,0,0,' + (MXS.dim / 100 * 0.7).toFixed(3) + ')';
+  document.documentElement.setAttribute('data-qfs', MXS.fs || 'S'); document.documentElement.setAttribute('data-qbold', MXS.bold ? '1' : '0');
   mxsWakeSync();
 }
 async function mxsWakeSync() {
@@ -4563,7 +4608,7 @@ function attachSettingsEvents() {
   const _gi = document.getElementById('miGoalIn');
   if (_gi) _gi.addEventListener('change', () => { let v = parseInt(_gi.value, 10); if (!(v >= 1)) { _gi.value = ''; return; } if (v > 500) v = 500; _gi.value = v; lsSet('goal', String(v)); document.querySelectorAll('[data-mi-goal]').forEach(x => x.classList.toggle('on', parseInt(x.getAttribute('data-mi-goal'), 10) === v)); });
   document.getElementById('mxsAwake').addEventListener('change', e => { MXS.awake = e.target.checked; mxsSave(); mxsApply(); });
-  document.getElementById('mxsReset').addEventListener('click', () => { MXS = { theme: 'auto', warm: 0, dim: 0, awake: false }; mxsSave(); mxsApply(); render(); });
+  document.getElementById('mxsReset').addEventListener('click', () => { MXS = { theme: 'auto', warm: 0, dim: 0, awake: false, fs: 'S', bold: false }; mxsSave(); mxsApply(); render(); });
 }
 
 
