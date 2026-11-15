@@ -229,15 +229,9 @@ footer small{color:#8fa4ae;font-size:14px}
 <div class="ov" id="ov"><div class="md" role="dialog" aria-modal="true">
   <button class="x" id="mx" aria-label="Close">&times;</button>
   <h2>Create new account</h2>
-  <ol>
-    <li><b>Create your account</b><span>Open the app and tap <b>Continue with Google</b>, or ask for an email sign-in link. Use the email you want your access on.</span>
-      <div class="row"><a class="btn navy" href="https://medixella.github.io/qbank/app/?stay">Log in or sign up</a></div>
-      <div style="display:none"><code id="did">----</code><button id="cpid">Copy</button><div id="iosw"></div></div></li>
-    <li><b>Message us</b><span>Send the email you signed up with on Instagram or WhatsApp and ask how to pay.</span>
-      <div class="row"><a class="btn wa" id="wal" href="#" target="_blank" rel="noopener">WhatsApp</a><a class="btn ig" id="igl" href="https://www.instagram.com/medixella/" target="_blank" rel="noopener">Instagram</a></div></li>
-    <li><b>Pay and send a screenshot</b><span>After paying, send us a screenshot of your payment together with your email.</span></li>
-    <li><b>Get activated</b><span>We activate your account. Open the app and tap <b>Check again</b>. Your account works on 2 devices and your progress syncs between them.</span></li>
-  </ol>
+  <p style="color:var(--soft);margin:10px 0 16px;font-size:15px;line-height:1.5">Sign in with your Google account (Gmail). Use the Gmail you want your access on. After signing in you choose your plan and pay.</p>
+  <div class="row"><a class="btn navy" href="https://medixella.github.io/qbank/app/?stay">Log in or sign up</a></div>
+  <div style="display:none"><code id="did">----</code><button id="cpid">Copy</button><div id="iosw"></div></div>
 </div></div>
 
 <div class="ov" id="ov2"><div class="md" role="dialog" aria-modal="true">
@@ -310,9 +304,7 @@ footer small{color:#8fa4ae;font-size:14px}
   var ov=document.getElementById('ov');
   function open(){var d=did();document.getElementById('did').textContent=d;
     var t='Hi Medixella, I would like full access to Medixella Qbank. The email I signed up with is: (type it here). I will send my payment screenshot.';
-    document.getElementById('wal').href='https://wa.me/923373586048?text='+encodeURIComponent(t);
-    document.getElementById('igl').onclick=function(){try{navigator.clipboard.writeText(t)}catch(e){}};
-    document.getElementById('iosw').style.display=/iPhone|iPad|iPod/i.test(navigator.userAgent)?'block':'none';
+        document.getElementById('iosw').style.display=/iPhone|iPad|iPod/i.test(navigator.userAgent)?'block':'none';
     ov.classList.add('on');document.body.style.overflow='hidden'}
   function close(){ov.classList.remove('on');document.body.style.overflow=''}
   document.querySelectorAll('[data-access]').forEach(function(b){b.addEventListener('click',open)});
