@@ -414,6 +414,10 @@ body{background:linear-gradient(180deg,#F4F1EA 0%,#F9F7F2 40%);}
 .ng-card input{width:100%;padding:13px 14px;border:1.5px solid #E2D6B3;border-radius:12px;font-size:16px;text-align:center;background:#fff;color:var(--ink);margin-bottom:12px;font-family:var(--serif);}
 .ng-card input:focus{outline:none;border-color:var(--gold);}
 .home-hero .logo-card img{mix-blend-mode:multiply;}
+.sub-end{margin:14px 16px 4px;padding:14px 16px;border-radius:16px;display:flex;align-items:center;gap:12px;background:linear-gradient(135deg,#e8f6f1,#f3f9ff);border:1px solid #b5ddd0;color:#0b3b34}
+.sub-end .se-ic{font-size:26px}.sub-end .se-tx b{display:block;font-size:15px}.sub-end .se-tx span{display:block;font-size:13px;margin-top:2px;opacity:.8}
+.sub-end.warn{background:linear-gradient(135deg,#fff4e0,#ffe9e6);border-color:#f0b9a8;color:#7a2a12}
+html[data-theme=dark] .sub-end{background:#12302c;border-color:#245a50;color:#d6f3ec}
 .pdf-list{padding:4px 16px 24px;display:flex;flex-direction:column;gap:12px}
 .pdf-card{background:var(--card,#fff);border:1px solid rgba(128,128,128,.25);border-radius:16px;padding:14px;display:flex;flex-direction:column;gap:10px;box-shadow:0 2px 10px rgba(0,0,0,.06)}
 .pdf-card{display:grid;grid-template-columns:48px 1fr;gap:10px 12px;align-items:center}
@@ -3234,6 +3238,16 @@ function mxqNameGate() {
   setTimeout(() => { try { d.querySelector('#ngIn').focus(); } catch (e) {} }, 150);
 }
 
+function subEndCardHTML() {
+  const L = MXQ_ACCT ? MXQ_ACCT_L : MXQ_LIC; if (!L) return '';
+  const s = L.expStr || '';
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return `<div class="sub-end"><div class="se-ic">&#9989;</div><div class="se-tx"><b>Your subscription</b><span>Active &middot; no end date</span></div></div>`;
+  const [y, m, d] = s.split('-').map(Number), [ty, tm, td] = accLocalDay(mxqNow()).split('-').map(Number);
+  const left = Math.round((Date.UTC(y, m - 1, d) - Date.UTC(ty, tm - 1, td)) / 86400000);
+  const warn = left <= 7;
+  const msg = left < 0 ? 'Ended' : left === 0 ? 'Last day today' : left === 1 ? '1 day left' : left + ' days left';
+  return `<div class="sub-end${warn ? ' warn' : ''}"><div class="se-ic">${warn ? '&#9203;' : '&#128197;'}</div><div class="se-tx"><b>Your subscription ends on ${mxqNiceDate(s)}</b><span>${msg}${warn ? ' &middot; message Medixella on WhatsApp to renew' : ''}</span></div></div>`;
+}
 function homeHTML() {
   const totalQ = Object.values(MANIFEST).flat().reduce((a, s) => a + s.count, 0);
   const stats = statsCache || { attempts: {}, sessions: [] };
@@ -3321,6 +3335,7 @@ function homeHTML() {
       <div class="lr-badge">${Object.keys(stats.flagged||{}).length}</div>
     </div>`;
 
+  if (!homeGroup && !TRIAL) html += subEndCardHTML();
   html += `<div class="credit-foot"><img src="${MARK_URI}" alt=""><div>Medixella Qbank<br><small style="opacity:.6">Version 3 &middot; updated 12 Nov 2026</small></div></div>`;
   html += contactHTML();
   html += accSettingsHTML();
@@ -4284,6 +4299,7 @@ const NEWS = [
   { id: 'n26', kind: 'content', date: '15 Nov 2026', title: 'Third Year modules re-ordered', body: 'Third Year MBBS now follows the LUMHS 2025-26 study guide: Foundation, Infectious Disease, Haematology, Respiratory, Cardiovascular, GIT & Liver, Endocrine, Renal, Reproductive, Musculoskeletal, Neuroscience, then Forensic Medicine and Community Medicine.' },
   { id: 'n27', kind: 'study', date: '15 Nov 2026', title: 'Quiz tools: settings and highlighter', body: 'While solving, tap the menu button at the top right to switch Day or Night, make the text bigger (S, M, L, XL) or bold. Tap the highlighter button to open or close the colour bar.' },
   { id: 'n28', kind: 'study', date: '16 Nov 2026', title: 'New: Anki flashcards', body: 'Open Flashcards on Home, then Medicine, to download high-yield Anki decks for Endocrinology, Gastroenterology, Haematology & Oncology, Infectious Diseases, Poisoning, Respiratory and Rheumatology. Add them to the Anki app and start studying.' },
+  { id: 'n29', kind: 'study', date: '16 Nov 2026', title: 'See when your subscription ends', body: 'At the bottom of Home you can now see the date your subscription ends and how many days are left.' },
 ];
 function newsSeen() { try { return JSON.parse(lsGet('newsSeen') || 'null'); } catch (e) { return null; } }
 function newsMark() { try { lsSet('newsSeen', JSON.stringify(NEWS.map(n => n.id))); } catch (e) {} }
