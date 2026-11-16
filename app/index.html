@@ -3218,7 +3218,6 @@ function homeHTML() {
     </div>
   `;
   if (!homeGroup) html += todayPanelHTML(stats, done);
-  if (!homeGroup) html += accOffCardHTML();
   if (!homeGroup && !lsGet('hidenote')) { const n = mxqNoticeHTML().replace('env-note', 'env-note home'); if (n) html += `<div style="padding:12px 16px 0">${n.replace('</div>', '<button class="link-btn" id="noteX" style="margin-left:8px">Got it</button></div>')}</div>`; }
   const LUMHS = ['First Year MBBS', 'Second Year MBBS', 'Third Year MBBS', 'Medicine', 'Surgery', 'Paediatrics', 'Obstetrics', 'Gynaecology', 'Ophthalmology', 'ENT'];
   const grpSubjects = g => Object.keys(MANIFEST).filter(x => g === 'lumhs' ? LUMHS.includes(x) : !LUMHS.includes(x));
