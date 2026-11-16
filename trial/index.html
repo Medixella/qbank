@@ -451,6 +451,15 @@ mark.hl-y{background:#fde047}mark.hl-o{background:#fdba74}mark.hl-g{background:#
 .ls-tools .ln-b{padding:4px 9px;font-size:12px}.ln-hint:empty{display:none}.ls-tools{gap:4px;padding:5px 10px}.ln-tb{font-size:12px}.ln-pal{gap:8px}.ln-sz{width:26px;height:26px;border-radius:8px;border:1px solid var(--line);background:var(--paper);display:inline-flex;align-items:center;justify-content:center;padding:0;cursor:pointer}.ln-sz i{display:block;width:16px;background:var(--ink);border-radius:3px;min-height:2px}.ln-sz.on{border-color:#0F2A3F;box-shadow:0 0 0 3px rgba(201,162,74,.6)}
 .ls-tools .hl-sd{width:26px;height:26px}
 /* quiz tools: highlighter + settings buttons, size/bold, collapsible highlighter bar */
+.yr-ask{position:fixed;inset:0;z-index:9000;background:rgba(6,20,30,.72);display:flex;align-items:center;justify-content:center;padding:18px}
+.yr-card{width:min(360px,100%);background:var(--card,#fff);color:var(--ink,#14232e);border-radius:20px;padding:22px 20px;box-shadow:0 20px 60px rgba(0,0,0,.4)}
+.yr-card h3{font-size:20px;margin-bottom:6px}.yr-card p{font-size:13.5px;color:var(--ink-soft,#5b6b74);line-height:1.45;margin-bottom:14px}
+.yr-b{display:block;width:100%;margin-bottom:8px;padding:13px;border-radius:12px;border:1.5px solid var(--line,#dde5e8);background:var(--card,#fff);color:inherit;font:700 15px inherit;font-family:inherit;cursor:pointer}
+.yr-b:active{background:#0F2A3F;color:#fff}
+.off-card{margin:12px 16px 0;padding:12px 14px;border-radius:14px;background:var(--card,#fff);border:1px solid var(--line,#dde5e8)}
+.oc-t{display:flex;justify-content:space-between;font-size:14px}.oc-t span{color:var(--ink-soft,#5b6b74);font-size:13px}
+.oc-bar{height:7px;border-radius:6px;background:rgba(15,42,63,.12);margin:8px 0 6px;overflow:hidden}.oc-bar i{display:block;height:100%;background:linear-gradient(90deg,#0f9a8c,#18c4b2);border-radius:6px;transition:width .4s}
+.oc-s{font-size:12.5px;color:var(--ink-soft,#5b6b74)}.oc-s a{color:#0f8f82;font-weight:700}
 .quiz-topbar{position:relative}
 .qtb{flex:none;width:34px;height:34px;border-radius:50%;border:none;background:rgba(255,255,255,.14);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0;transition:background .2s,transform .2s}
 .qtb.on{background:#fde047;color:#0F2A3F;transform:scale(1.06)}
@@ -1591,7 +1600,7 @@ function loadAllFlashcards() {
 }
 
 async function ensureLoaded() {
-  if (QBANK.length === 0) { QBANK = loadAllQuestions(); await accQcStart(); setTimeout(accPrefetch, 5000); }
+  if (QBANK.length === 0) { QBANK = loadAllQuestions(); await accQcStart(); if (accMyYear() || TRIAL) setTimeout(accPrefetch, 5000); else setTimeout(accAskYear, 1500); }
   if (FLASHCARDS.length === 0) FLASHCARDS = loadAllFlashcards();
 }
 
@@ -1934,7 +1943,7 @@ function showAccount(st) {
 // Settings: account line, devices, log out, delete my account
 function accSettingsHTML() {
   if (!MXQ_ACCT) return '';
-  return `<div class="lic-line">Signed in as <b>${lsGet('aemail') || ''}</b> &middot; <a href="#" data-acc="devices">My devices</a> &middot; <a href="#" data-acc="out">Log out</a> &middot; <a href="#" data-acc="del">Delete my account</a></div><div class="lic-line" id="offSt" style="margin-top:6px">${accOffText()}</div>`;
+  return `<div class="lic-line">Signed in as <b>${lsGet('aemail') || ''}</b> &middot; <a href="#" data-acc="devices">My devices</a> &middot; <a href="#" data-acc="out">Log out</a> &middot; <a href="#" data-acc="del">Delete my account</a></div><div class="lic-line" id="offSt" style="margin-top:6px">${accOffText()}</div><div class="lic-line" style="margin-top:6px">My year (saved first for offline): <a href="#" data-yrchg="1">${({ '1': '1st Year', '2': '2nd Year', '3': '3rd Year', '4': '4th Year', 'F': 'Final Year' })[accMyYear()] || 'Choose'}</a></div>`;
 }
 document.addEventListener('click', async e => {
   const a = e.target.closest && e.target.closest('[data-acc]'); if (!a) return; e.preventDefault();
@@ -2094,21 +2103,53 @@ async function accQuota() {
     return r && r.state === 'ok' && r.limit ? { used: r.used || 0, limit: r.limit } : null;
   } catch (e) { return null; }
 }
+function accOffRefresh() {
+  const e = document.getElementById('offSt'); if (e) e.innerHTML = accOffText();
+  const c = document.getElementById('offCard'); if (c) { const h = accOffCardHTML(); if (h) c.outerHTML = h; else c.remove(); }
+}
+function accOffCardHTML() {
+  if (TRIAL || !MXQ_ACCT || !QBANK.length) return '';
+  const c = accPfCount(); if (!c.left) return '';
+  const done = c.total - c.left, pct = Math.round(done / c.total * 100);
+  return `<div class="off-card" id="offCard"><div class="oc-t"><b>&#128190; Saving for offline</b><span>${done.toLocaleString()} of ${c.total.toLocaleString()}</span></div><div class="oc-bar"><i style="width:${pct}%"></i></div><div class="oc-s">${ACC_PF.run ? 'Saving now. Keep the app open.' : (navigator.onLine ? '<a href="#" data-off="1">Save now (best on Wi-Fi)</a>' : 'Connect to the internet to save the rest.')}${ACC_PF.fail === 'reserve' || ACC_PF.fail === 'limit' ? ' Today\u2019s limit is reached; it continues tomorrow.' : ''}</div></div>`;
+}
+function accMyYear() { return lsGet('myyear') || ''; }
+function accInYear(q, y) {
+  if (y === '1') return q.subject === 'First Year MBBS';
+  if (y === '2') return q.subject === 'Second Year MBBS';
+  if (y === '3') return q.subject === 'Third Year MBBS';
+  if (y === '4') return q.subject === 'ENT' || q.subject === 'Ophthalmology' || (q.subject === 'Medicine' && M4_MED.includes(q.system)) || (q.subject === 'Surgery' && M4_SURG.includes(q.system));
+  if (y === 'F') return (q.subject === 'Medicine' && !M4_MED_ONLY.includes(q.system)) || (q.subject === 'Surgery' && !M4_SURG.includes(q.system)) || ['Paediatrics', 'Obstetrics', 'Gynaecology'].includes(q.subject);
+  return false;
+}
+function accPfNeed() {
+  const y = accMyYear(), all = QBANK.filter(q => q.stub && !accTryCache(q) && !ACC_FLY.has(q.id));
+  return y ? all.filter(q => accInYear(q, y)).concat(all.filter(q => !accInYear(q, y))) : all;
+}
+function accAskYear(force) {
+  if (TRIAL || !MXQ_ACCT || (accMyYear() && !force) || document.getElementById('yrAsk')) return;
+  const d = document.createElement('div'); d.id = 'yrAsk'; d.className = 'yr-ask';
+  d.innerHTML = '<div class="yr-card"><h3>Which year are you in?</h3><p>We save your year first, so it works with no internet. Everything else is saved after it.</p>' +
+    [['1', '1st Year'], ['2', '2nd Year'], ['3', '3rd Year'], ['4', '4th Year'], ['F', 'Final Year']].map(x => `<button class="yr-b" data-yr="${x[0]}">${x[1]}</button>`).join('') + '</div>';
+  document.body.appendChild(d);
+  d.addEventListener('click', e => { const b = e.target.closest('[data-yr]'); if (!b) return; lsSet('myyear', b.getAttribute('data-yr')); d.remove(); accPrefetch(); if (currentScreen === 'settings') { const s = document.getElementById('offSt'); if (s) s.innerHTML = accOffText(); } if (currentScreen === 'home') render(); });
+}
 async function accPrefetch() {
   if (!MXQ_ACCT || ACC_PF.run || !navigator.onLine || !QBANK.length) return;
-  ACC_PF.run = true; ACC_PF.fail = '';
+  ACC_PF.run = true; ACC_PF.fail = ''; accOffRefresh();
   try {
     for (let guard = 0; guard < 2000; guard++) {
       if (!navigator.onLine || !MXQ_ACCT) break;
-      // never use up the student's daily allowance in the background: keep 40% of it for the questions they open themselves
+      // never use up the student's whole daily allowance in the background: keep 20% of it for the questions they open themselves
       const qt = await accQuota(); if (!qt) break;
-      const room = (qt.limit - qt.used) - Math.round(qt.limit * 0.4);
+      const room = (qt.limit - qt.used) - Math.round(qt.limit * 0.2);
       if (room < 1) { ACC_PF.fail = 'reserve'; break; }
-      const need = QBANK.filter(q => q.stub && !accTryCache(q) && !ACC_FLY.has(q.id)).slice(0, Math.min(40, room));
+      const need = accPfNeed().slice(0, Math.min(40, room));
       if (!need.length) break;
       const p = accHydrate1(need); need.forEach(q => ACC_FLY.set(q.id, p));
       const res = await p; need.forEach(q => ACC_FLY.delete(q.id));
       if (!res.ok) { ACC_PF.fail = res.reason || 'net'; break; }
+      accOffRefresh();
       await new Promise(r => setTimeout(r, 150));
     }
     // lesson / sources PDFs
@@ -2116,16 +2157,17 @@ async function accPrefetch() {
     for (const id of Object.keys(pv)) { if (!navigator.onLine || !MXQ_ACCT) break; if (!(window.__PDFR__ || {})[id] && !(ACC_QMEM['p:' + id] && ACC_QMEM['p:' + id].v === pv[id])) { const ok = await accFetchPdf(id, true); if (!ok) break; } }
   } catch (e) {}
   ACC_PF.run = false;
-  if (currentScreen === 'settings') { const e = document.getElementById('offSt'); if (e) e.innerHTML = accOffText(); }
+  accOffRefresh();
 }
 function accOffText() {
   const c = accPfCount(), pv = window.__PDF_V__ || {}, pl = Object.keys(pv).filter(id => !(ACC_QMEM['p:' + id] && ACC_QMEM['p:' + id].v === pv[id])).length;
   if (ACC_PF.run) return 'Saving for offline&hellip; ' + (c.total - c.left).toLocaleString() + ' of ' + c.total.toLocaleString() + ' questions saved';
   if (!c.left && !pl) return '&#10003; Everything is saved on this device. The app works fully offline.';
-  return (c.total - c.left).toLocaleString() + ' of ' + c.total.toLocaleString() + ' questions saved for offline. ' + (navigator.onLine ? '<a href="#" data-off="1">Save the rest now</a>' : 'Connect to the internet to save the rest.');
+  return (c.total - c.left).toLocaleString() + ' of ' + c.total.toLocaleString() + ' questions saved for offline. ' + (navigator.onLine ? '<a href="#" data-off="1">Save the rest now</a>' : 'Connect to the internet to save the rest.') + (ACC_PF.fail === 'reserve' || ACC_PF.fail === 'limit' ? ' <br><small>Today\u2019s saving limit is reached. It continues automatically tomorrow.</small>' : '');
 }
 document.addEventListener('click', e => { const a = e.target.closest && e.target.closest('[data-off]'); if (!a) return; e.preventDefault(); accPrefetch(); const t = document.getElementById('offSt'); if (t) { t.innerHTML = accOffText(); const iv = setInterval(() => { const x = document.getElementById('offSt'); if (!x) return clearInterval(iv); x.innerHTML = accOffText(); if (!ACC_PF.run) clearInterval(iv); }, 1500); } });
 window.addEventListener('online', () => setTimeout(accPrefetch, 3000));
+document.addEventListener('click', e => { const a = e.target.closest && e.target.closest('[data-yrchg]'); if (!a) return; e.preventDefault(); accAskYear(true); });
 async function accDecrypt(buf, keyHex, aad, gz) {
   if (String.fromCharCode(buf[0], buf[1], buf[2], buf[3]) !== 'MXQ1') throw new Error('format');
   const ck = await crypto.subtle.importKey('raw', accHexBytes(keyHex), 'AES-GCM', false, ['decrypt']);
@@ -3175,6 +3217,7 @@ function homeHTML() {
     </div>
   `;
   if (!homeGroup) html += todayPanelHTML(stats, done);
+  if (!homeGroup) html += accOffCardHTML();
   if (!homeGroup && !lsGet('hidenote')) { const n = mxqNoticeHTML().replace('env-note', 'env-note home'); if (n) html += `<div style="padding:12px 16px 0">${n.replace('</div>', '<button class="link-btn" id="noteX" style="margin-left:8px">Got it</button></div>')}</div>`; }
   const LUMHS = ['First Year MBBS', 'Second Year MBBS', 'Third Year MBBS', 'Medicine', 'Surgery', 'Paediatrics', 'Obstetrics', 'Gynaecology', 'Ophthalmology', 'ENT'];
   const grpSubjects = g => Object.keys(MANIFEST).filter(x => g === 'lumhs' ? LUMHS.includes(x) : !LUMHS.includes(x));
