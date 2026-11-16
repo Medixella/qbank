@@ -985,6 +985,46 @@ const SRC_PDFS = [
   { id: 'inf', title: 'Infectious Diseases', file: 'Medixella_Infectious_OnePage_Sheets.pdf' },
   { id: 'rheum', title: 'Rheumatology', file: 'Medixella_Rheumatology_OnePage_Sheets.pdf' }
 ];
+const ANKI_DECKS = [
+  { id: 'fcendo', title: 'Endocrinology', file: 'Medixella_HighYield_Endocrinology.apkg', mb: '11 MB' },
+  { id: 'fcgit', title: 'Gastroenterology', file: 'Medixella_HighYield_Gastroenterology.apkg', mb: '26 MB' },
+  { id: 'fchaem', title: 'Haematology & Oncology', file: 'Medixella_HighYield_Haematology_Oncology.apkg', mb: '21 MB' },
+  { id: 'fcinf', title: 'Infectious Diseases', file: 'Medixella_HighYield_Infectious_Diseases.apkg', mb: '3.7 MB' },
+  { id: 'fctox', title: 'Poisoning', file: 'Medixella_HighYield_Poisoning.apkg', mb: '1.8 MB' },
+  { id: 'fcresp', title: 'Respiratory', file: 'Medixella_HighYield_Respiratory.apkg', mb: '4.6 MB' },
+  { id: 'fcrheum', title: 'Rheumatology', file: 'Medixella_HighYield_Rheumatology.apkg', mb: '4.3 MB' }
+];
+async function mxqAnkiDownload(id) {
+  const m = ANKI_DECKS.find(x => x.id === id); if (!m) return;
+  if (TRIAL || typeof MXQ_ACCT === 'undefined' || !MXQ_ACCT) { mxqToast('Anki flashcards are for subscribers. Tap "Get access".'); return; }
+  if (!navigator.onLine) { mxqToast('Connect to the internet to download this deck'); return; }
+  try {
+    const auth = await accLoadFb(); const u = auth.currentUser || await accUser(auth);
+    if (!u) { mxqToast('Please log in again'); return; }
+    mxqToast('Preparing ' + m.title + ' (' + m.mb + ')…');
+    const r = await accCall('pkey', { idToken: await u.getIdToken(), deviceId: mxqDeviceId(), name: id });
+    if (!r || r.state !== 'ok') { mxqToast('Anki flashcards are for subscribers with an active plan'); return; }
+    const bin = await accFetchBin('p/' + id + '.bin'); if (!bin) { mxqToast('Download failed. Check your internet and try again'); return; }
+    const raw = await accDecrypt(bin, r.key, 'p:' + id, false);
+    const url = URL.createObjectURL(new Blob([raw], { type: 'application/octet-stream' })), a = document.createElement('a');
+    a.href = url; a.download = m.file; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 120000); mxqToast('Downloaded. Open the file with Anki');
+  } catch (e) { mxqToast('Could not download right now. Try again'); }
+}
+function flashcardsHTML() {
+  const parts = homeGroup.split(':');
+  const back = `<button class="link-btn" id="grpBack" style="font-size:15px">&#8592; ${parts.length === 1 ? 'Decks' : 'Back'}</button>`;
+  const crumb = ['Flashcards', 'Medicine'].slice(0, parts.length).join(' &rsaquo; ');
+  let h = `<div class="section" style="display:flex;align-items:center;gap:10px">${back}<div class="section-title" style="margin:0">${crumb}</div></div>`;
+  if (parts.length === 1) {
+    h += `<div class="deck-list"><button class="deck-card med" data-group="flashcards:medicine"><div class="deck-ic">&#9877;</div><div class="deck-tx"><h3>Medicine</h3><p>Anki flashcards for final-year Medicine</p><span>${ANKI_DECKS.length} decks</span></div><div class="deck-go">&#8250;</div></button></div>`;
+  } else {
+    const ok = !TRIAL && typeof MXQ_ACCT !== 'undefined' && MXQ_ACCT;
+    h += `<div class="env-note" style="margin:4px 16px 12px;background:#e6f4ef;color:#0b3b34;border:1px solid #9fd3c5;padding:12px 14px;border-radius:12px;font-size:14px;line-height:1.45"><b>Note:</b> These are Anki flashcards made for the final year Medicine subject. Download them, add them to the Anki app and start studying.${ok ? '<br><small>Tip: the bigger decks are 10&ndash;26 MB, so download them on Wi-Fi.</small>' : ''}</div>`;
+    h += `<div class="pdf-list">` + ANKI_DECKS.map(p => `<div class="pdf-card"><div class="pdf-ic" style="font-size:11px">ANKI</div><div class="pdf-tx"><h3>${escapeHtml(p.title)}</h3><p>Anki deck (.apkg) &middot; ${p.mb}</p></div><div class="pdf-btns">${ok ? `<button class="pdf-b read" data-anki-dl="${p.id}">Download deck</button>` : `<button class="pdf-b dl" data-anki-lock="1">&#128274; Get access</button>`}</div></div>`).join('') + `</div>`;
+  }
+  return h;
+}
 function mxqPdfBlob(id) {
   const raw = (window.__PDFR__ || {})[id]; if (raw) return new Blob([raw], { type: 'application/pdf' });
   const b64 = (window.__PDFS__ || {})[id]; if (!b64) return null;
@@ -3248,15 +3288,16 @@ function homeHTML() {
       <button class="deck-card lumhs" data-group="lumhs"><div class="deck-ic lg"><img src="${LUMHS_LOGO}" alt="LUMHS"></div><div class="deck-tx"><h3>LUMHS Qbank</h3><span>${grpCount('lumhs').toLocaleString()} questions</span></div><div class="deck-go">&#8250;</div></button>
       <button class="deck-card mocktest" data-mock="1"><div class="deck-ic">&#9201;</div><div class="deck-tx"><h3>Mock Test</h3><span>Exam-style, results at the end</span></div><div class="deck-go">&#8250;</div></button>
       <button class="deck-card sources" data-group="sources"><div class="deck-ic">&#128218;</div><div class="deck-tx"><h3>Sources</h3><span>${SRC_PDFS.length} PDFs</span></div><div class="deck-go">&#8250;</div></button>
+      <button class="deck-card sources" data-group="flashcards"><div class="deck-ic">&#127183;</div><div class="deck-tx"><h3>Flashcards</h3><span>Anki decks</span></div><div class="deck-go">&#8250;</div></button>
       <button class="deck-card lumhs" data-group="study"><div class="deck-ic">&#127891;</div><div class="deck-tx"><h3>Study with us</h3><span>${LESSONS.reduce((a, c) => a + c.topics.length, 0)} lessons</span></div><div class="deck-go">&#8250;</div></button>
     </div>`;
     html += _ip;
   } else {
-    if (homeGroup.indexOf('study') === 0) html += studyHTML(); else if (homeGroup.indexOf('sources') === 0) html += sourcesHTML(); else
+    if (homeGroup.indexOf('study') === 0) html += studyHTML(); else if (homeGroup.indexOf('sources') === 0) html += sourcesHTML(); else if (homeGroup.indexOf('flashcards') === 0) html += flashcardsHTML(); else
     html += `<div class="section" style="display:flex;align-items:center;gap:10px"><button class="link-btn" id="grpBack" style="font-size:15px">&#8592; Decks</button><div class="section-title" style="margin:0">${escapeHtml(deckTitle())}</div></div><div class="subject-grid">`;
     if (homeGroup && homeGroup.indexOf('lumhs') === 0) html += lumhsCardsHTML(stats);
   }
-  for (const subj of ((homeGroup && /^(sources|study|lumhs)/.test(homeGroup)===false) ? grpSubjects(homeGroup) : [])) {
+  for (const subj of ((homeGroup && /^(sources|study|lumhs|flashcards)/.test(homeGroup)===false) ? grpSubjects(homeGroup) : [])) {
     const count = MANIFEST[subj].reduce((a, s) => a + s.count, 0);
     const cls = /Year MBBS/.test(subj) ? (subj[0] === 'F' ? 'surg' : 'clin') : subj === 'Medicine' ? 'med' : (subj === 'Paediatrics' ? 'peds' : (subj === 'Clinicals' ? 'clin' : (subj === 'Board Review' ? 'board' : (subj === 'Surgery' ? 'surg' : (subj === 'Obstetrics' ? 'peds' : (subj === 'Gynaecology' ? 'med' : (subj === 'Ophthalmology' ? 'surg' : (subj === 'ENT' ? 'peds' : 'misc'))))))));
     const icon = /Year MBBS/.test(subj) ? (subj[0] === 'F' ? '&#129516;' : '&#129504;') : subj === 'Medicine' ? '&#9877;' : (subj === 'Paediatrics' ? '&#128118;' : (subj === 'Clinicals' ? '&#129658;' : (subj === 'Board Review' ? '&#127891;' : (subj === 'Surgery' ? '&#128488;' : (subj === 'Obstetrics' ? '&#129328;' : (subj === 'Gynaecology' ? '&#9792;' : (subj === 'Ophthalmology' ? '&#128065;' : (subj === 'ENT' ? '&#128066;' : '&#129514;'))))))));
@@ -3267,7 +3308,7 @@ function homeHTML() {
       ${(() => { const dn = Object.values(stats.attempts).filter(a => a.subject === subj).length; const pc = count ? Math.min(100, Math.round(dn / count * 100)) : 0; return `<div class="mbar"><i style="width:${pc}%"></i></div><div class="mpct">${pc}% covered</div>`; })()}
     </button>`;
   }
-  if (homeGroup && /^(sources|study)/.test(homeGroup)===false) html += `</div>`;
+  if (homeGroup && /^(sources|study|flashcards)/.test(homeGroup)===false) html += `</div>`;
 
   if (!homeGroup) html += `<div class="section"><div class="section-title">Quick actions</div></div>`;
   if (!homeGroup) html += `<div class="list-row" data-action="incorrect">
@@ -3354,6 +3395,8 @@ function attachHomeEvents() {
   document.querySelectorAll('[data-soon]').forEach(el => el.addEventListener('click', () => { el.querySelector('p').innerHTML = '<b style="color:#0E8F84">Coming soon \u2014 stay tuned!</b>'; }));
   document.querySelectorAll('[data-group]').forEach(el => el.addEventListener('click', () => { homeGroup = el.getAttribute('data-group'); render(); window.scrollTo(0, 0); }));
   const gb = document.getElementById('grpBack'); if (gb) gb.addEventListener('click', () => { homeGroup = (homeGroup && homeGroup.indexOf(':') > 0) ? homeGroup.slice(0, homeGroup.lastIndexOf(':')) : null; render(); window.scrollTo(0, 0); });
+  document.querySelectorAll('[data-anki-dl]').forEach(el => el.addEventListener('click', () => mxqAnkiDownload(el.getAttribute('data-anki-dl'))));
+  document.querySelectorAll('[data-anki-lock]').forEach(el => el.addEventListener('click', () => { if (typeof mxqToast === 'function') mxqToast('Anki flashcards are for subscribers. Message us on WhatsApp +92 337 3586048 for access'); }));
   document.querySelectorAll('[data-pdf-read]').forEach(el => el.addEventListener('click', () => mxqPdfRead(el.getAttribute('data-pdf-read'))));
   document.querySelectorAll('[data-pdf-dl]').forEach(el => el.addEventListener('click', () => mxqPdfDownload(el.getAttribute('data-pdf-dl'))));
   document.querySelectorAll('[data-subject]').forEach(el => {
@@ -4239,6 +4282,7 @@ const NEWS = [
   { id: 'n25', kind: 'content', date: '15 Nov 2026', title: 'Community Medicine added to Third Year', body: 'Third Year MBBS now includes Community Medicine: 734 past-paper questions covering epidemiology, biostatistics, communicable and non-communicable diseases, nutrition, environment, demography, maternal and child health and the Pakistan health system. Every question names its past paper and textbook page, and explains every option.' },
   { id: 'n26', kind: 'content', date: '15 Nov 2026', title: 'Third Year modules re-ordered', body: 'Third Year MBBS now follows the LUMHS 2025-26 study guide: Foundation, Infectious Disease, Haematology, Respiratory, Cardiovascular, GIT & Liver, Endocrine, Renal, Reproductive, Musculoskeletal, Neuroscience, then Forensic Medicine and Community Medicine.' },
   { id: 'n27', kind: 'study', date: '15 Nov 2026', title: 'Quiz tools: settings and highlighter', body: 'While solving, tap the menu button at the top right to switch Day or Night, make the text bigger (S, M, L, XL) or bold. Tap the highlighter button to open or close the colour bar.' },
+  { id: 'n28', kind: 'study', date: '16 Nov 2026', title: 'New: Anki flashcards', body: 'Open Flashcards on Home, then Medicine, to download high-yield Anki decks for Endocrinology, Gastroenterology, Haematology & Oncology, Infectious Diseases, Poisoning, Respiratory and Rheumatology. Add them to the Anki app and start studying.' },
 ];
 function newsSeen() { try { return JSON.parse(lsGet('newsSeen') || 'null'); } catch (e) { return null; } }
 function newsMark() { try { lsSet('newsSeen', JSON.stringify(NEWS.map(n => n.id))); } catch (e) {} }
