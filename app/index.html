@@ -1470,8 +1470,8 @@ async function lbSync(force) {
       if (!dd || dd.day !== dy) { dd = { day: dy, base: parseInt(lsGet('lb:last') || String(best), 10) }; lsSet('lb:dy', JSON.stringify(dd)); }
       await fetch(FS + '/weekly/' + dy + '/scores/' + a.uid + '?key=' + FB.key, { method: 'PATCH', headers: H, body: JSON.stringify({ fields: Object.assign({ name: { stringValue: name }, points: lbInt(best - dd.base), updated: lbInt(now) }, acf) }) });
     } catch (e2) {}
-    lsSet('lb:last', String(best)); lbLast = Date.now(); lbState.err = '';
-  } catch (e) { lbState.err = e.code === 'auth' ? 'Leaderboard is not ready yet (anonymous sign-in is off).' : /write 40[13]/.test(e.message) ? 'Leaderboard is not ready yet (database rules).' : ''; }
+    lsSet('lb:last', String(best)); lbLast = Date.now(); lbState.err = ''; lbState.syncFail = ''; try { lsSet('lb:syncfail', ''); } catch (e4) {}
+  } catch (e) { lbState.err = e.code === 'auth' ? 'Leaderboard is not ready yet (anonymous sign-in is off).' : /write 40[13]/.test(e.message) ? 'Leaderboard is not ready yet (database rules).' : ''; lbState.syncFail = e.code === 'auth' ? 'auth' : (e.message || 'error'); try { lsSet('lb:syncfail', String(Date.now()) + '|' + lbState.syncFail); } catch (e3) {} }
   lbBusy = false;
 }
 let lbT = null;
@@ -1499,7 +1499,7 @@ async function lbLoad(force) {
   if (!force && lbState.top && Date.now() - (lbState.at || 0) < 150000) { lbState.err = ''; if (currentScreen === 'leaders') render(); return; }
   lbState.loading = true; lbState.err = ''; if (currentScreen === 'leaders') render();
   try {
-    lbSync(true);   // send my latest score in the background; do not wait for it
+    try { await Promise.race([lbSync(true), new Promise(r => setTimeout(r, 6000))]); } catch (e0) {}   // upload my latest score first (max 6 s) so the list matches Home
     const wk = lbWeek(), mo = lbMonth(), best = parseInt(lsGet('lb:best') || '0', 10), w = lbJSON('lb:wk', null), wp = w ? best - w.base : 0, m = lbJSON('lb:mo', null), mp = m ? best - m.base : 0;
     const dy = lbDay(), dj = lbJSON('lb:dy', null), dp = dj && dj.day === dy ? best - dj.base : 0;
     const [top, weekTop, monthTop, r1, r2, r3, dayTop, r4] = await Promise.all([lbQuery('', 'leaderboard', 20), lbQuery('/weekly/' + wk, 'scores', 20), lbQuery('/weekly/' + mo, 'scores', 20),
@@ -1547,6 +1547,7 @@ function leadersHTML() {
   if (lbState.dd) h += `<div class="lb2-menu">${Object.keys(LB_MODES).map(k => `<button class="${k === md ? 'on' : ''}" data-lbmode="${k}"><i>${k === md ? '&#10003;' : ''}</i>${LB_MODES[k]}</button>`).join('')}</div>`;
   h += `</div>`;
   h += `<div class="lb2-card lb2-mine"><div class="lb2-cap">&#127919; Your Current Rank</div><div class="lb2-mrow"><div class="lb2-av big">${escapeHtml(lbInit(myName))}</div><div class="lb2-mi"><b>${escapeHtml(myName)}</b><span>Total Score: ${myPts}</span><span>${LB_MODES[md]} / Medixella</span></div><div class="lb2-rk"><strong>${rank ? '#' + rank : '...'}</strong><span>Current Rank</span></div></div></div>`;
+  if (lbState.syncFail && !lbState.err) h += `<div class="lb2-card"><p class="lb-note">Your latest score could not be uploaded yet, so the list may show an older score. Check your internet and open this page again.</p></div>`;
   if (lbState.err === 'offline') h += `<div class="lb2-card"><p class="lb-note">You are offline. Connect to the internet to see the leaderboard.</p></div>`;
   else if (lbState.err) h += `<div class="lb2-card"><p class="lb-note">${escapeHtml(lbState.err)}</p><button class="ai-go" id="lbRetry">Try again</button></div>`;
   else if (lbState.loading && !list) h += `<div class="lb2-card lb2-wait"><div class="lb2-clock"><svg viewBox="0 0 64 64" width="64" height="64"><circle cx="32" cy="32" r="28" fill="none" stroke="currentColor" stroke-width="4" opacity=".25"/><circle cx="32" cy="32" r="28" fill="none" stroke="#C9A24B" stroke-width="4" stroke-dasharray="40 140" stroke-linecap="round" class="lb2-ring"/><path class="lb2-hh" d="M32 32V19" stroke="currentColor" stroke-width="4" stroke-linecap="round"/><path class="lb2-mh" d="M32 32V13" stroke="#0F6E56" stroke-width="3" stroke-linecap="round"/></svg></div><p class="lb-note"><b>Please wait&hellip;</b><br>Loading the top students</p></div>`;
@@ -4301,6 +4302,7 @@ const NEWS = [
   { id: 'n27', kind: 'study', date: '15 Nov 2026', title: 'Quiz tools: settings and highlighter', body: 'While solving, tap the menu button at the top right to switch Day or Night, make the text bigger (S, M, L, XL) or bold. Tap the highlighter button to open or close the colour bar.' },
   { id: 'n28', kind: 'study', date: '16 Nov 2026', title: 'New: Anki flashcards', body: 'Open Flashcards on Home, then Medicine, to download high-yield Anki decks for Endocrinology, Gastroenterology, Haematology & Oncology, Infectious Diseases, Poisoning, Respiratory and Rheumatology. Add them to the Anki app and start studying.' },
   { id: 'n29', kind: 'study', date: '16 Nov 2026', title: 'See when your subscription ends', body: 'At the bottom of Home you can now see the date your subscription ends and how many days are left.' },
+  { id: 'n30', kind: 'study', date: '17 Nov 2026', title: 'Leaderboard now stays in sync', body: 'When you open Leaders, your latest score is uploaded first, so the list matches your Home page.' },
 ];
 function newsSeen() { try { return JSON.parse(lsGet('newsSeen') || 'null'); } catch (e) { return null; } }
 function newsMark() { try { lsSet('newsSeen', JSON.stringify(NEWS.map(n => n.id))); } catch (e) {} }
