@@ -475,6 +475,15 @@ mark.hl-y{background:#fde047}mark.hl-o{background:#fdba74}mark.hl-g{background:#
 .qs-seg button{flex:1;border:1.5px solid var(--line,#dde5e8);background:var(--card,#fff);color:var(--ink,#14232e);border-radius:10px;padding:9px 4px;font:600 14px inherit;font-family:inherit;cursor:pointer;transition:background .15s,color .15s}
 .qs-seg button.on{background:#0F2A3F;border-color:#0F2A3F;color:#fff}
 html[data-theme=dark] .qs-seg button.on{background:#5eead4;border-color:#5eead4;color:#06222b}
+.qtb.qtn{position:relative}
+.qtb .qn-dot{display:none;position:absolute;top:3px;right:3px;width:9px;height:9px;border-radius:50%;background:#f97316;border:2px solid #0F2A3F}
+.qtb.has .qn-dot{display:block}
+.qn-wrap{max-height:0;opacity:0;overflow:hidden;transition:max-height .35s ease,opacity .3s ease}
+.qn-wrap.open{max-height:260px;opacity:1}
+.qn-card{background:#fde68a;color:#3b2f05;border-radius:6px 6px 18px 6px;padding:10px 12px 12px;margin:0 0 14px;box-shadow:0 6px 14px rgba(0,0,0,.16);transform:rotate(-.6deg)}
+.qn-h{display:flex;justify-content:space-between;align-items:center;font-size:13px;margin-bottom:6px}
+.qn-h span{font-size:11px;opacity:.7}
+.qn-card textarea{width:100%;box-sizing:border-box;border:none;outline:none;resize:vertical;min-height:84px;background:repeating-linear-gradient(transparent,transparent 23px,rgba(120,90,0,.22) 24px);color:#3b2f05;font:inherit;font-size:15px;line-height:24px;padding:0}
 .hl-wrap{max-height:0;opacity:0;overflow:hidden;transition:max-height .35s ease,opacity .3s ease}
 .hl-wrap.open{max-height:130px;opacity:1}
 .hl-wrap .hl-strip{margin-bottom:12px}
@@ -1147,6 +1156,26 @@ function sourcesHTML() {
 
 // ---- Highlighter: select text in a question, pick yellow/orange/green/purple; saved automatically per question ----
 const HL_COLORS = { y: '#fde047', o: '#fdba74', g: '#86efac', p: '#d8b4fe' };
+// ---- personal sticky note on every question (auto-saved, synced between devices) ----
+function qnGet(id) { return lsGet('qn:' + id) || ''; }
+function qnSave(id, v) { if ((v || '').trim()) lsSet('qn:' + id, v); else { try { window.localStorage.removeItem(LSP + 'qn:' + id); window.localStorage.setItem(LSP + '_st:qn:' + id, String(Date.now())); } catch (e) {} if (typeof ACC_DIRTY_HOOK !== 'undefined' && ACC_DIRTY_HOOK) ACC_DIRTY_HOOK(); } }
+const qnOpen = {}; let qnTimer = null;
+function qnCur() { try { return session && session.questions && session.questions[session.idx]; } catch (e) { return null; } }
+document.addEventListener('click', e => {
+  const b = e.target.closest && e.target.closest('[data-qn]'); if (!b || currentScreen !== 'quiz') return;
+  const q = qnCur(); if (!q) return;
+  qnOpen[q.id] = !(qnOpen[q.id] !== undefined ? qnOpen[q.id] : !!qnGet(q.id));
+  const w = document.getElementById('qnWrap'); if (w) { w.classList.toggle('open', qnOpen[q.id]); if (qnOpen[q.id]) { const t = document.getElementById('qnTa'); if (t) setTimeout(() => t.focus(), 250); } }
+  document.querySelectorAll('[data-qn]').forEach(x => x.classList.toggle('on', qnOpen[q.id]));
+});
+document.addEventListener('input', e => {
+  if (!e.target || e.target.id !== 'qnTa') return;
+  const q = qnCur(); if (!q) return; const v = e.target.value, st = document.getElementById('qnSt');
+  if (st) st.textContent = 'Saving...';
+  document.querySelectorAll('[data-qn]').forEach(x => x.classList.toggle('has', !!v.trim()));
+  clearTimeout(qnTimer); qnTimer = setTimeout(() => { qnSave(q.id, v); const s2 = document.getElementById('qnSt'); if (s2) s2.textContent = v.trim() ? 'Saved' : 'Empty'; }, 350);
+});
+document.addEventListener('focusout', e => { if (e.target && e.target.id === 'qnTa') { const q = qnCur(); if (q) { clearTimeout(qnTimer); qnSave(q.id, e.target.value); const s2 = document.getElementById('qnSt'); if (s2) s2.textContent = e.target.value.trim() ? 'Saved' : 'Empty'; } } });
 function hlLoad(qid) { try { return JSON.parse(lsGet('hl:' + qid) || '[]'); } catch (e) { return []; } }
 function hlSave(qid, arr) { if (arr.length) lsSet('hl:' + qid, JSON.stringify(arr)); else { try { window.localStorage.removeItem(LSP + 'hl:' + qid); } catch (e) {} } }
 function hlContainers() {
@@ -1620,7 +1649,7 @@ const STORAGE_AVAILABLE = typeof window !== 'undefined' && !!window.storage
 const memoryStore = {};
 
 function lsGet(k){ try { return window.localStorage.getItem(LSP + k); } catch (e) { return null; } }
-const ACC_SYNC_RE = /^(priv:mystats:|blocks$|hl:|ln:|goal$|exam$|name$|name_at$|lb:name$|lb:auth$|lb:wk$|lb:mo$|lb:best$|uni$|year$)/;
+const ACC_SYNC_RE = /^(priv:mystats:|blocks$|hl:|qn:|ln:|goal$|exam$|name$|name_at$|lb:name$|lb:auth$|lb:wk$|lb:mo$|lb:best$|uni$|year$)/;
 let ACC_DIRTY_HOOK = null;
 function lsSet(k,v){ try { window.localStorage.setItem(LSP + k, v); if (ACC_SYNC_RE.test(k)) { window.localStorage.setItem(LSP + '_st:' + k, String(Date.now())); if (ACC_DIRTY_HOOK) ACC_DIRTY_HOOK(); } return true; } catch (e) { return false; } }
 
@@ -3780,6 +3809,7 @@ function quizHTML() {
     <div class="qcount">${session.idx+1}/${session.questions.length}</div>
     ${!session.finished && (session.mode==='timed' || mock) ? '<div class="timer" id="quizTimer">--:--</div>' : ''}
     ${mock ? '<button class="qpal" id="palBtn" title="Question list">&#9638;</button>' : ''}
+    <button class="qtb qtn ${qnGet(session.questions[session.idx].id) ? 'has' : ''} ${(qnOpen[session.questions[session.idx].id] !== undefined ? qnOpen[session.questions[session.idx].id] : !!qnGet(session.questions[session.idx].id)) ? 'on' : ''}" data-qn="1" aria-label="My note" title="My note"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v10l-6 6H4z"/><path d="M14 20v-6h6"/><path d="M8 9h8M8 13h4"/></svg><i class="qn-dot"></i></button>
     <button class="qtb ${qtHl ? 'on' : ''}" data-qt="hl" aria-label="Highlighter" title="Highlighter"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l-6 6v3h9l3-3"/><path d="M22 12l-4.6 4.6a2 2 0 0 1-2.8 0l-5.2-5.2a2 2 0 0 1 0-2.8L14 4"/></svg></button>
     <button class="qtb ${qtSet ? 'on' : ''}" data-qt="set" aria-label="Settings" title="Settings"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
     <div class="qs-panel ${qtSet ? 'open' : ''}" id="qsPanel">
@@ -3802,6 +3832,8 @@ function quizHTML() {
   if (session.idx === 0 && session.justResetPool) {
     html += `<div class="mastery-banner">&#127881; You've mastered every question in this set — starting a fresh round so you can keep reinforcing it.</div>`;
   }
+  { const _qn = qnGet(q.id), _op = qnOpen[q.id] !== undefined ? qnOpen[q.id] : !!_qn;
+    html += `<div class="qn-wrap ${_op ? 'open' : ''}" id="qnWrap"><div class="qn-card"><div class="qn-h"><b>&#128221; My note</b><span id="qnSt">${_qn ? 'Saved' : 'Auto-saves as you type'}</span></div><textarea id="qnTa" rows="4" maxlength="2000" placeholder="Type anything you want to remember about this question...">${escapeHtml(_qn)}</textarea></div></div>`; }
   const _ch = qChips(q);
   html += `<div class="qmeta"><span class="tag subj">${escapeHtml(_ch.subj)}</span><span class="tag sys">${escapeHtml(_ch.sys)}</span>${q.is_new ? '<span class="tag new">New</span>' : ''}</div>`;
   html += `<div class="hl-wrap ${qtHl ? 'open' : ''}" id="hlWrap"><div class="hl-strip"><span class="hl-lbl">Highlighter</span>${['y','o','g','p'].map(c => `<button class="hl-sd ${hlActive===c?'on':''}" data-hls="${c}" style="background:${HL_COLORS[c]}" aria-label="highlight colour"></button>`).join('')}<button class="hl-sd hl-se ${hlActive==='x'?'on':''}" data-hls="x" aria-label="eraser">&#10005;</button><span class="hl-hint" id="hlHint">${hlActive==='x' ? 'Eraser on: select highlighted text to remove it' : hlActive ? 'Select any text and it turns this colour' : 'Tap a colour, then select text'}</span></div></div>`;
@@ -4330,6 +4362,7 @@ const NEWS = [
   { id: 'n32', kind: 'study', date: '17 Nov 2026', title: 'Medicine updated', body: 'About 480 Medicine questions now have improved explanations and book page references, and 94 new Medicine questions were added. Your progress is kept.' },
   { id: 'n33', kind: 'study', date: '17 Nov 2026', title: 'Book quotes added', body: 'Updated Medicine questions now show the short quote from the book page under the explanation, so you can check the source yourself.' },
   { id: 'n34', kind: 'study', date: '18 Nov 2026', title: 'ENT Qbank updated', body: 'ENT now has 642 questions arranged by topic (Ear, Nose, Pharynx, Larynx, Head and neck, Oesophagus), with fuller explanations. Your earlier progress on matching questions is kept.' },
+  { id: 'n36', kind: 'study', date: '18 Nov 2026', title: 'Sticky notes on questions', body: 'Tap the note button at the top of any question and type your own note. It saves by itself and syncs to your other device. A small dot on the button shows which questions already have a note.' },
   { id: 'n35', kind: 'study', date: '18 Nov 2026', title: 'Leaderboard fixes', body: 'The Leaderboard now refreshes reliably, uploads your score more often, and tells you when it shows a saved list and why. Open it and tap Try again if it looks old.' },
 ];
 function newsSeen() { try { return JSON.parse(lsGet('newsSeen') || 'null'); } catch (e) { return null; } }
