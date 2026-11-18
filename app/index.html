@@ -1376,6 +1376,10 @@ document.addEventListener('keydown', e => {
 // ---- Leaderboard (Firebase Firestore over REST; anonymous sign-in; opt-in nickname) ----
 const FB = { key: 'AIzaSyAo9v19hOkf3TbYZ_EdHMUgd6Pdjnp9aAA', pid: 'medixella-top-students' };
 const FS = 'https://firestore.googleapis.com/v1/projects/' + FB.pid + '/databases/(default)/documents';
+async function lbFetch(url, opt, ms) {
+  const c = typeof AbortController !== 'undefined' ? new AbortController() : null, t = c ? setTimeout(() => c.abort(), ms || 15000) : null;
+  try { return await fetch(url, Object.assign({}, opt || {}, c ? { signal: c.signal } : {})); } finally { if (t) clearTimeout(t); }
+}
 const lbState = { mode: 'all', top: null, weekTop: null, monthTop: null, rankAll: null, rankWeek: null, rankMonth: null, loading: false, err: '', all: false, dd: false };
 function lbMonth() { const d = new Date(); return d.getFullYear() + '-' + (d.getMonth() < 9 ? '0' : '') + (d.getMonth() + 1); }
 function lbDay() { const d = new Date(); return 'D' + d.getFullYear() + '-' + (d.getMonth() < 9 ? '0' : '') + (d.getMonth() + 1) + '-' + (d.getDate() < 10 ? '0' : '') + d.getDate(); }
@@ -1391,12 +1395,12 @@ async function lbToken() {
   if (a && a.id && a.exp > Date.now() + 60000) return a;
   if (a && a.ref) {
     try {
-      const r = await fetch('https://securetoken.googleapis.com/v1/token?key=' + FB.key, { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: 'grant_type=refresh_token&refresh_token=' + encodeURIComponent(a.ref) });
+      const r = await lbFetch('https://securetoken.googleapis.com/v1/token?key=' + FB.key, { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: 'grant_type=refresh_token&refresh_token=' + encodeURIComponent(a.ref) });
       const j = await r.json();
       if (r.ok && j.id_token) { a = { uid: j.user_id, id: j.id_token, ref: j.refresh_token, exp: Date.now() + (parseInt(j.expires_in, 10) || 3600) * 1000 }; lsSet('lb:auth', JSON.stringify(a)); return a; }
     } catch (e) { throw e; }
   }
-  const r = await fetch('https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=' + FB.key, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ returnSecureToken: true }) });
+  const r = await lbFetch('https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=' + FB.key, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ returnSecureToken: true }) });
   const j = await r.json();
   if (!r.ok) { const e = new Error((j.error && j.error.message) || 'auth'); e.code = 'auth'; throw e; }
   a = { uid: j.localId, id: j.idToken, ref: j.refreshToken, exp: Date.now() + (parseInt(j.expiresIn, 10) || 3600) * 1000 };
@@ -1406,7 +1410,7 @@ async function lbTokenFrom(a) {
   try {
     if (a.id && a.exp > Date.now() + 60000) return a.id;
     if (!a.ref) return null;
-    const r = await fetch('https://securetoken.googleapis.com/v1/token?key=' + FB.key, { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: 'grant_type=refresh_token&refresh_token=' + encodeURIComponent(a.ref) });
+    const r = await lbFetch('https://securetoken.googleapis.com/v1/token?key=' + FB.key, { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: 'grant_type=refresh_token&refresh_token=' + encodeURIComponent(a.ref) });
     const j = await r.json(); return (r.ok && j.id_token) ? j.id_token : null;
   } catch (e) { return null; }
 }
@@ -1426,11 +1430,12 @@ async function lbPoints() {
   const correct = ks.filter(k => at[k].lastCorrect).length;
   return { points: ks.length + 2 * correct, answered: ks.length, correct: correct };
 }
-let lbBusy = false, lbLast = 0;
+let lbBusy = false, lbLast = 0, lbBusyAt = 0, lb401 = false;
 async function lbSync(force) {
+  if (lbBusy && Date.now() - lbBusyAt > 45000) lbBusy = false;   // a hung request must never block syncing for good
   if (!lsGet('lb:on') || !navigator.onLine || lbBusy) return;
   if (!force && Date.now() - lbLast < 30000) return;
-  lbBusy = true;
+  lbBusy = true; lbBusyAt = Date.now();
   try {
     const old = lbJSON('lb:old', null);
     if (old && old.uid) {   // this device used its own leaderboard entry before; remove it so the same student is not listed twice
@@ -1442,8 +1447,8 @@ async function lbSync(force) {
             const wk0 = lbWeek(), mo0 = lbMonth();
             for (const p of ['/leaderboard/', '/weekly/' + wk0 + '/scores/', '/weekly/' + mo0 + '/scores/']) {
               const url = FS + p + old.uid + '?key=' + FB.key, H0 = { 'content-type': 'application/json', 'Authorization': 'Bearer ' + t };
-              let rr = await fetch(url, { method: 'DELETE', headers: H0 });
-              if (!rr.ok) await fetch(url, { method: 'PATCH', headers: H0, body: JSON.stringify({ fields: Object.assign({ name: { stringValue: 'Student' }, points: lbInt(0), updated: lbInt(Date.now()) }, (await lbAcct()) ? { acct: { stringValue: await lbAcct() } } : {}) }) });
+              let rr = await lbFetch(url, { method: 'DELETE', headers: H0 });
+              if (!rr.ok) await lbFetch(url, { method: 'PATCH', headers: H0, body: JSON.stringify({ fields: Object.assign({ name: { stringValue: 'Student' }, points: lbInt(0), updated: lbInt(Date.now()) }, (await lbAcct()) ? { acct: { stringValue: await lbAcct() } } : {}) }) });
             }
           }
         }
@@ -1457,59 +1462,75 @@ async function lbSync(force) {
     const name = (mxqName() || lsGet('lb:name') || 'Student').slice(0, 24);
     const H = { 'content-type': 'application/json', 'Authorization': 'Bearer ' + a.id };
     const now = Date.now();
-    let r = await fetch(FS + '/leaderboard/' + a.uid + '?key=' + FB.key, { method: 'PATCH', headers: H, body: JSON.stringify({ fields: Object.assign({ name: { stringValue: name }, points: lbInt(best), answered: lbInt(p.answered), correct: lbInt(p.correct), updated: lbInt(now) }, acf) }) });
+    let r = await lbFetch(FS + '/leaderboard/' + a.uid + '?key=' + FB.key, { method: 'PATCH', headers: H, body: JSON.stringify({ fields: Object.assign({ name: { stringValue: name }, points: lbInt(best), answered: lbInt(p.answered), correct: lbInt(p.correct), updated: lbInt(now) }, acf) }) });
     if (!r.ok) throw new Error('write ' + r.status);
-    r = await fetch(FS + '/weekly/' + wk + '/scores/' + a.uid + '?key=' + FB.key, { method: 'PATCH', headers: H, body: JSON.stringify({ fields: Object.assign({ name: { stringValue: name }, points: lbInt(best - w.base), updated: lbInt(now) }, acf) }) });
+    r = await lbFetch(FS + '/weekly/' + wk + '/scores/' + a.uid + '?key=' + FB.key, { method: 'PATCH', headers: H, body: JSON.stringify({ fields: Object.assign({ name: { stringValue: name }, points: lbInt(best - w.base), updated: lbInt(now) }, acf) }) });
     if (!r.ok) throw new Error('write ' + r.status);
     const mo = lbMonth(); let m = lbJSON('lb:mo', null);
     if (!m || m.month !== mo) { m = { month: mo, base: parseInt(lsGet('lb:last') || String(best), 10) }; lsSet('lb:mo', JSON.stringify(m)); }
-    r = await fetch(FS + '/weekly/' + mo + '/scores/' + a.uid + '?key=' + FB.key, { method: 'PATCH', headers: H, body: JSON.stringify({ fields: Object.assign({ name: { stringValue: name }, points: lbInt(best - m.base), updated: lbInt(now) }, acf) }) });
+    r = await lbFetch(FS + '/weekly/' + mo + '/scores/' + a.uid + '?key=' + FB.key, { method: 'PATCH', headers: H, body: JSON.stringify({ fields: Object.assign({ name: { stringValue: name }, points: lbInt(best - m.base), updated: lbInt(now) }, acf) }) });
     if (!r.ok) throw new Error('write ' + r.status);
     try {   // today's score (never blocks the other boards if it fails)
       const dy = lbDay(); let dd = lbJSON('lb:dy', null);
       if (!dd || dd.day !== dy) { dd = { day: dy, base: parseInt(lsGet('lb:last') || String(best), 10) }; lsSet('lb:dy', JSON.stringify(dd)); }
-      await fetch(FS + '/weekly/' + dy + '/scores/' + a.uid + '?key=' + FB.key, { method: 'PATCH', headers: H, body: JSON.stringify({ fields: Object.assign({ name: { stringValue: name }, points: lbInt(best - dd.base), updated: lbInt(now) }, acf) }) });
+      await lbFetch(FS + '/weekly/' + dy + '/scores/' + a.uid + '?key=' + FB.key, { method: 'PATCH', headers: H, body: JSON.stringify({ fields: Object.assign({ name: { stringValue: name }, points: lbInt(best - dd.base), updated: lbInt(now) }, acf) }) });
     } catch (e2) {}
-    lsSet('lb:last', String(best)); lbLast = Date.now(); lbState.err = ''; lbState.syncFail = ''; try { lsSet('lb:syncfail', ''); } catch (e4) {}
-  } catch (e) { lbState.err = e.code === 'auth' ? 'Leaderboard is not ready yet (anonymous sign-in is off).' : /write 40[13]/.test(e.message) ? 'Leaderboard is not ready yet (database rules).' : ''; lbState.syncFail = e.code === 'auth' ? 'auth' : (e.message || 'error'); try { lsSet('lb:syncfail', String(Date.now()) + '|' + lbState.syncFail); } catch (e3) {} }
+    lsSet('lb:last', String(best)); lbLast = Date.now(); lb401 = false; lbState.err = ''; lbState.syncFail = ''; try { lsSet('lb:syncfail', ''); } catch (e4) {}
+  } catch (e) {
+    if (/write 401/.test(e.message) && !lb401) { lb401 = true; try { const a0 = lbJSON('lb:auth', null); if (a0) { a0.exp = 0; lsSet('lb:auth', JSON.stringify(a0)); } } catch (e5) {} lbBusy = false; return lbSync(true); }
+    lbState.err = e.code === 'auth' ? 'Leaderboard is not ready yet (anonymous sign-in is off).' : /write 40[13]/.test(e.message) ? 'Leaderboard is not ready yet (database rules).' : ''; lbState.syncFail = e.code === 'auth' ? 'auth' : (e.message || 'error'); try { lsSet('lb:syncfail', String(Date.now()) + '|' + lbState.syncFail); } catch (e3) {} }
   lbBusy = false;
 }
 let lbT = null;
 function lbSyncSoon() { if (!lsGet('lb:on')) return; clearTimeout(lbT); lbT = setTimeout(() => lbSync(false), 20000); }
 window.addEventListener('online', () => lbSync(false));
+setInterval(() => { try { if (!document.hidden && lsGet('lb:on')) lbSync(false); } catch (e) {} }, 90000);
+document.addEventListener('visibilitychange', () => { try { if (!document.hidden && lsGet('lb:on')) lbSync(false); } catch (e) {} });
 async function lbQuery(parent, coll, n) {
-  const r = await fetch(FS + parent + ':runQuery?key=' + FB.key, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ structuredQuery: { from: [{ collectionId: coll }], orderBy: [{ field: { fieldPath: 'points' }, direction: 'DESCENDING' }], limit: n } }) });
+  const r = await lbFetch(FS + parent + ':runQuery?key=' + FB.key, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ structuredQuery: { from: [{ collectionId: coll }], orderBy: [{ field: { fieldPath: 'points' }, direction: 'DESCENDING' }], limit: n } }) });
   const j = await r.json(); if (!r.ok) { const e = new Error('query ' + r.status); throw e; }
   return j.filter(x => x.document).map(x => { const f = x.document.fields || {}, id = x.document.name.split('/').pop(); const g = k => f[k] ? (f[k].integerValue !== undefined ? parseInt(f[k].integerValue, 10) : f[k].stringValue) : 0; return { uid: id, name: g('name') || 'Student', points: g('points'), answered: g('answered'), correct: g('correct'), acct: g('acct') || '' }; }).filter((x, i, arr) => !x.acct || arr.findIndex(y => y.acct === x.acct) === i);
 }
 async function lbRankOf(parent, coll, pts) {
-  const r = await fetch(FS + parent + ':runAggregationQuery?key=' + FB.key, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ structuredAggregationQuery: { structuredQuery: { from: [{ collectionId: coll }], where: { fieldFilter: { field: { fieldPath: 'points' }, op: 'GREATER_THAN', value: { integerValue: String(pts) } } } }, aggregations: [{ alias: 'n', count: {} }] } }) });
+  const r = await lbFetch(FS + parent + ':runAggregationQuery?key=' + FB.key, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ structuredAggregationQuery: { structuredQuery: { from: [{ collectionId: coll }], where: { fieldFilter: { field: { fieldPath: 'points' }, op: 'GREATER_THAN', value: { integerValue: String(pts) } } } }, aggregations: [{ alias: 'n', count: {} }] } }) });
   const j = await r.json(); if (!r.ok) throw new Error('rank ' + r.status);
   const v = j[0] && j[0].result && j[0].result.aggregateFields && j[0].result.aggregateFields.n; return v ? parseInt(v.integerValue, 10) + 1 : null;
 }
 function lbCacheRead() {
-  if (lbState.top) return;
+  if (lbState.top || lbState.weekTop || lbState.monthTop || lbState.dayTop) return;
   const c = lbJSON('lb:cache', null);
-  if (c && c.top && c.v === 20) { lbState.top = c.top; lbState.weekTop = c.weekTop; lbState.monthTop = c.monthTop; lbState.rankAll = c.rankAll; lbState.rankWeek = c.rankWeek; lbState.rankMonth = c.rankMonth; lbState.dayTop = c.dayKey === lbDay() ? c.dayTop : null; lbState.rankDay = c.dayKey === lbDay() ? c.rankDay : null; lbState.at = c.at || 0; }
+  if (c && c.v === 21) { lbState.top = c.top; lbState.weekTop = c.weekTop; lbState.monthTop = c.monthTop; lbState.rankAll = c.rankAll; lbState.rankWeek = c.rankWeek; lbState.rankMonth = c.rankMonth; lbState.dayTop = c.dayKey === lbDay() ? c.dayTop : null; lbState.rankDay = c.dayKey === lbDay() ? c.rankDay : null; lbState.atm = c.atm || {}; lbState.at = c.at || 0; }
 }
+function lbReason(e) {
+  const m = (e && e.message) || '';
+  if (/40[13]/.test(m)) return 'Leaderboard is not ready yet (database rules).';
+  if (/429|quota|resource/i.test(m)) return 'The leaderboard server is very busy right now. Your score is safe on your device and will upload automatically.';
+  if (e && e.name === 'AbortError') return 'The connection is slow, so the leaderboard could not refresh.';
+  return 'Could not reach the leaderboard. Check your internet and try again.';
+}
+function lbAgo(t) { if (!t) return ''; const s = Math.max(0, Math.round((Date.now() - t) / 1000)); return s < 60 ? 'just now' : s < 3600 ? Math.round(s / 60) + ' min ago' : s < 86400 ? Math.round(s / 3600) + ' h ago' : Math.round(s / 86400) + ' d ago'; }
 async function lbLoad(force) {
   lbCacheRead();
-  if (!navigator.onLine) { lbState.err = lbState.top ? '' : 'offline'; lbState.loading = false; if (currentScreen === 'leaders') render(); return; }
-  if (lbState.loading) return;
-  if (!force && lbState.top && Date.now() - (lbState.at || 0) < 150000) { lbState.err = ''; if (currentScreen === 'leaders') render(); return; }
-  lbState.loading = true; lbState.err = ''; if (currentScreen === 'leaders') render();
+  const md = lbState.mode;
+  if (!navigator.onLine) { lbState.err = lbListOf(md) ? '' : 'offline'; lbState.loading = false; if (currentScreen === 'leaders') render(); return; }
+  if (lbState.loading && Date.now() - (lbState.loadAt || 0) < 45000) return;
+  const have = lbListOf(md), atm = (lbState.atm || {})[md] || 0;
+  if (!force && have && Date.now() - atm < 150000) { lbState.err = ''; if (currentScreen === 'leaders') render(); return; }
+  lbState.loading = true; lbState.loadAt = Date.now(); lbState.err = ''; lbState.stale = ''; if (currentScreen === 'leaders') render();
   try {
     try { await Promise.race([lbSync(true), new Promise(r => setTimeout(r, 6000))]); } catch (e0) {}   // upload my latest score first (max 6 s) so the list matches Home
-    const wk = lbWeek(), mo = lbMonth(), best = parseInt(lsGet('lb:best') || '0', 10), w = lbJSON('lb:wk', null), wp = w ? best - w.base : 0, m = lbJSON('lb:mo', null), mp = m ? best - m.base : 0;
-    const dy = lbDay(), dj = lbJSON('lb:dy', null), dp = dj && dj.day === dy ? best - dj.base : 0;
-    const [top, weekTop, monthTop, r1, r2, r3, dayTop, r4] = await Promise.all([lbQuery('', 'leaderboard', 20), lbQuery('/weekly/' + wk, 'scores', 20), lbQuery('/weekly/' + mo, 'scores', 20),
-      lbRankOf('', 'leaderboard', best).catch(() => null), lbRankOf('/weekly/' + wk, 'scores', wp).catch(() => null), lbRankOf('/weekly/' + mo, 'scores', mp).catch(() => null),
-      lbQuery('/weekly/' + dy, 'scores', 20).then(l => l.filter(x => x.points > 0)).catch(() => []), lbRankOf('/weekly/' + dy, 'scores', dp).catch(() => null)]);
-    lbState.top = top; lbState.weekTop = weekTop; lbState.monthTop = monthTop; lbState.rankAll = r1; lbState.rankWeek = r2; lbState.rankMonth = r3; lbState.dayTop = dayTop; lbState.rankDay = r4; lbState.dayKey = dy; lbState.at = Date.now();
-    lsSet('lb:cache', JSON.stringify({ top, weekTop, monthTop, dayTop, rankDay: r4, dayKey: dy, rankAll: r1, rankWeek: r2, rankMonth: r3, at: lbState.at, v: 20 }));
-  } catch (e) { lbState.err = lbState.top ? '' : (/query 40[13]|rank 40[13]/.test(e.message) ? 'Leaderboard is not ready yet (database rules).' : 'Could not load the leaderboard. Check your internet and try again.'); }
+    const wk = lbWeek(), mo = lbMonth(), dy = lbDay(), best = parseInt(lsGet('lb:best') || '0', 10), w = lbJSON('lb:wk', null), wp = w ? best - w.base : 0, m = lbJSON('lb:mo', null), mp = m ? best - m.base : 0;
+    const dj = lbJSON('lb:dy', null), dp = dj && dj.day === dy ? best - dj.base : 0;
+    const lq = md === 'day' ? lbQuery('/weekly/' + dy, 'scores', 20).then(l => l.filter(x => x.points > 0)) : md === 'week' ? lbQuery('/weekly/' + wk, 'scores', 20) : md === 'month' ? lbQuery('/weekly/' + mo, 'scores', 20) : lbQuery('', 'leaderboard', 20);
+    const [list, r1, r2, r3, r4] = await Promise.all([lq, lbRankOf('', 'leaderboard', best).catch(() => null), lbRankOf('/weekly/' + wk, 'scores', wp).catch(() => null), lbRankOf('/weekly/' + mo, 'scores', mp).catch(() => null), md === 'day' ? lbRankOf('/weekly/' + dy, 'scores', dp).catch(() => null) : Promise.resolve(lbState.rankDay)]);
+    if (md === 'day') lbState.dayTop = list; else if (md === 'week') lbState.weekTop = list; else if (md === 'month') lbState.monthTop = list; else lbState.top = list;
+    if (r1 != null) lbState.rankAll = r1; if (r2 != null) lbState.rankWeek = r2; if (r3 != null) lbState.rankMonth = r3; if (r4 != null) lbState.rankDay = r4;
+    lbState.dayKey = dy; lbState.at = Date.now(); lbState.atm = Object.assign(lbState.atm || {}, { [md]: lbState.at });
+    lsSet('lb:cache', JSON.stringify({ top: lbState.top, weekTop: lbState.weekTop, monthTop: lbState.monthTop, dayTop: lbState.dayTop, rankDay: lbState.rankDay, dayKey: dy, rankAll: lbState.rankAll, rankWeek: lbState.rankWeek, rankMonth: lbState.rankMonth, atm: lbState.atm, at: lbState.at, v: 21 }));
+  } catch (e) { const why = lbReason(e); if (lbListOf(md)) lbState.stale = why; else lbState.err = why; }
   lbState.loading = false; if (currentScreen === 'leaders') render(); else if (currentScreen === 'home') homeMedalFill();
 }
+function lbListOf(md) { return md === 'day' ? lbState.dayTop : md === 'week' ? lbState.weekTop : md === 'month' ? lbState.monthTop : lbState.top; }
 // Medal on Home for the top 3 of the leaderboard (all time, this month or this week)
 function mxMedalInfo() {
   try {
@@ -1548,8 +1569,10 @@ function leadersHTML() {
   h += `</div>`;
   h += `<div class="lb2-card lb2-mine"><div class="lb2-cap">&#127919; Your Current Rank</div><div class="lb2-mrow"><div class="lb2-av big">${escapeHtml(lbInit(myName))}</div><div class="lb2-mi"><b>${escapeHtml(myName)}</b><span>Total Score: ${myPts}</span><span>${LB_MODES[md]} / Medixella</span></div><div class="lb2-rk"><strong>${rank ? '#' + rank : '...'}</strong><span>Current Rank</span></div></div></div>`;
   if (lbState.syncFail && !lbState.err) h += `<div class="lb2-card"><p class="lb-note">Your latest score could not be uploaded yet, so the list may show an older score. Check your internet and open this page again.</p></div>`;
+  if (lbState.stale) h += `<div class="lb2-card"><p class="lb-note">Showing the list saved ${lbAgo((lbState.atm || {})[md])}. ${escapeHtml(lbState.stale)}</p><button class="ai-go" id="lbRetry">Try again</button></div>`;
   if (lbState.err === 'offline') h += `<div class="lb2-card"><p class="lb-note">You are offline. Connect to the internet to see the leaderboard.</p></div>`;
   else if (lbState.err) h += `<div class="lb2-card"><p class="lb-note">${escapeHtml(lbState.err)}</p><button class="ai-go" id="lbRetry">Try again</button></div>`;
+  else if (!list && !lbState.loading) h += `<div class="lb2-card"><p class="lb-note">Loading the list&hellip;</p></div>`;
   else if (lbState.loading && !list) h += `<div class="lb2-card lb2-wait"><div class="lb2-clock"><svg viewBox="0 0 64 64" width="64" height="64"><circle cx="32" cy="32" r="28" fill="none" stroke="currentColor" stroke-width="4" opacity=".25"/><circle cx="32" cy="32" r="28" fill="none" stroke="#C9A24B" stroke-width="4" stroke-dasharray="40 140" stroke-linecap="round" class="lb2-ring"/><path class="lb2-hh" d="M32 32V19" stroke="currentColor" stroke-width="4" stroke-linecap="round"/><path class="lb2-mh" d="M32 32V13" stroke="#0F6E56" stroke-width="3" stroke-linecap="round"/></svg></div><p class="lb-note"><b>Please wait&hellip;</b><br>Loading the top students</p></div>`;
   else if (list && !list.length) h += `<div class="lb2-card"><p class="lb-note">${md === 'day' ? 'No one has scored today yet. Be the first!' : 'No one has joined yet. Be the first!'}</p></div>`;
   else if (list) {
@@ -1563,13 +1586,13 @@ function leadersHTML() {
       h += `</div>`;
     }
   }
-  h += `<div class="lb-foot">${lbState.loading && list ? '<span class="lb2-upd">Updating&hellip;</span> ' : ''}Points: 1 for each question answered + 2 more for each correct one. You are on the board with your name. Change it in Settings &gt; My info.</div>`;
+  h += `<div class="lb-foot">${lbState.loading && list ? '<span class="lb2-upd">Updating&hellip;</span> ' : ((lbState.atm || {})[md] ? '<span class="lb2-upd">Updated ' + lbAgo((lbState.atm || {})[md]) + '</span> ' : '')}Points: 1 for each question answered + 2 more for each correct one. You are on the board with your name. Change it in Settings &gt; My info.</div>`;
   return h + `</div>` + tabbarHTML('leaders');
 }
 function attachLeadersEvents() {
   document.querySelectorAll('[data-nav]').forEach(el => el.addEventListener('click', () => { const n = el.getAttribute('data-nav'); if (n === 'home') { homeGroup = null; goHome(); } else if (n === 'settings') goSettings(); else if (n === 'leaders') goLeaders(); else goStats(); }));
   const dd = document.getElementById('lbDD'); if (dd) dd.addEventListener('click', () => { lbState.dd = !lbState.dd; render(); });
-  document.querySelectorAll('[data-lbmode]').forEach(el => el.addEventListener('click', () => { lbState.mode = el.getAttribute('data-lbmode'); lbState.dd = false; lbState.all = false; render(); }));
+  document.querySelectorAll('[data-lbmode]').forEach(el => el.addEventListener('click', () => { lbState.mode = el.getAttribute('data-lbmode'); lbState.dd = false; lbState.all = false; lbState.stale = ''; render(); lbLoad(); }));
   const rt = document.getElementById('lbRetry'); if (rt) rt.addEventListener('click', () => lbLoad(true));
   const mo = document.getElementById('lbMore'); if (mo) mo.addEventListener('click', () => { lbState.all = !lbState.all; render(); if (lbState.all) lbLoad(true); });
 }
@@ -4306,6 +4329,7 @@ const NEWS = [
   { id: 'n31', kind: 'study', date: '17 Nov 2026', title: 'More 1st and 2nd Year questions', body: 'First Year and Second Year now have more questions (about 800 new in total), and many existing explanations were improved. Your progress is kept.' },
   { id: 'n32', kind: 'study', date: '17 Nov 2026', title: 'Medicine updated', body: 'About 480 Medicine questions now have improved explanations and book page references, and 94 new Medicine questions were added. Your progress is kept.' },
   { id: 'n33', kind: 'study', date: '17 Nov 2026', title: 'Book quotes added', body: 'Updated Medicine questions now show the short quote from the book page under the explanation, so you can check the source yourself.' },
+  { id: 'n35', kind: 'study', date: '18 Nov 2026', title: 'Leaderboard fixes', body: 'The Leaderboard now refreshes reliably, uploads your score more often, and tells you when it shows a saved list and why. Open it and tap Try again if it looks old.' },
   { id: 'n34', kind: 'study', date: '18 Nov 2026', title: 'ENT Qbank updated', body: 'ENT now has 642 questions arranged by topic (Ear, Nose, Pharynx, Larynx, Head and neck, Oesophagus), with fuller explanations. Your earlier progress on matching questions is kept.' },
 ];
 function newsSeen() { try { return JSON.parse(lsGet('newsSeen') || 'null'); } catch (e) { return null; } }
