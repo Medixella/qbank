@@ -4362,8 +4362,8 @@ const NEWS = [
   { id: 'n32', kind: 'study', date: '17 Nov 2026', title: 'Medicine updated', body: 'About 480 Medicine questions now have improved explanations and book page references, and 94 new Medicine questions were added. Your progress is kept.' },
   { id: 'n33', kind: 'study', date: '17 Nov 2026', title: 'Book quotes added', body: 'Updated Medicine questions now show the short quote from the book page under the explanation, so you can check the source yourself.' },
   { id: 'n34', kind: 'study', date: '18 Nov 2026', title: 'ENT Qbank updated', body: 'ENT now has 642 questions arranged by topic (Ear, Nose, Pharynx, Larynx, Head and neck, Oesophagus), with fuller explanations. Your earlier progress on matching questions is kept.' },
-  { id: 'n36', kind: 'study', date: '18 Nov 2026', title: 'Sticky notes on questions', body: 'Tap the note button at the top of any question and type your own note. It saves by itself and syncs to your other device. A small dot on the button shows which questions already have a note.' },
   { id: 'n35', kind: 'study', date: '18 Nov 2026', title: 'Leaderboard fixes', body: 'The Leaderboard now refreshes reliably, uploads your score more often, and tells you when it shows a saved list and why. Open it and tap Try again if it looks old.' },
+  { id: 'n36', kind: 'study', date: '18 Nov 2026', title: 'Sticky notes on questions', body: 'Tap the note button at the top of any question and type your own note. It saves by itself and syncs to your other device. A small dot on the button shows which questions already have a note.' },
 ];
 function newsSeen() { try { return JSON.parse(lsGet('newsSeen') || 'null'); } catch (e) { return null; } }
 function newsMark() { try { lsSet('newsSeen', JSON.stringify(NEWS.map(n => n.id))); } catch (e) {} }
