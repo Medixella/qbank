@@ -1023,6 +1023,10 @@ const ANKI_DECKS = [
   { id: 'fcresp', title: 'Respiratory', file: 'Medixella_HighYield_Respiratory.apkg', mb: '4.6 MB' },
   { id: 'fcrheum', title: 'Rheumatology', file: 'Medixella_HighYield_Rheumatology.apkg', mb: '4.3 MB' }
 ];
+function accStateMsg(st, what) {
+  const m = { auth: 'Please log in again', pending: 'Your account is waiting for activation. Message us on WhatsApp', expired: 'Your access has ended. Message us on WhatsApp to renew', stopped: 'Your access is paused. Message us on WhatsApp', blocked: 'Your access is paused. Message us on WhatsApp', device_limit: 'This device is not one of your 2 devices. Log in again on it from the account screen', swap_wait: 'Your device swap is still waiting. Try again later' };
+  return m[st] || ('Could not open ' + what + ' right now. Check your internet and try again');
+}
 async function mxqLegPiece(name) {
   // old activation-code users: extra files (Anki decks, Paediatrics sheets) are encrypted with the same key as their data file
   const k = window.__LKEY__; if (!k || !(window.crypto && crypto.subtle) || !/^[a-z0-9]{1,20}$/.test(name)) return null;
@@ -1057,7 +1061,7 @@ async function mxqAnkiDownload(id) {
     if (!u) { mxqToast('Please log in again'); return; }
     mxqToast('Preparing ' + m.title + ' (' + m.mb + ')…');
     const r = await accCall('pkey', { idToken: await u.getIdToken(), deviceId: mxqDeviceId(), name: id });
-    if (!r || r.state !== 'ok') { mxqToast('Anki flashcards are for subscribers with an active plan'); return; }
+    if (!r || r.state !== 'ok') { mxqToast(accStateMsg(r && r.state, 'the Anki deck')); return; }
     const bin = await accFetchBin('p/' + id + '.bin'); if (!bin) { mxqToast('Download failed. Check your internet and try again'); return; }
     const raw = await accDecrypt(bin, r.key, 'p:' + id, false);
     const url = URL.createObjectURL(new Blob([raw], { type: 'application/octet-stream' })), a = document.createElement('a');
@@ -2414,7 +2418,7 @@ async function accFetchPdf(id, quiet) {
     const auth = await accLoadFb(); const u = auth.currentUser || await accUser(auth);
     if (!u) { mxqToast('Please log in again'); return false; }
     const r = await accCall('pkey', { idToken: await u.getIdToken(), deviceId: mxqDeviceId(), name: id });
-    if (!r || r.state !== 'ok') { mxqToast('Could not open the PDF right now'); return false; }
+    if (!r || r.state !== 'ok') { mxqToast(accStateMsg(r && r.state, 'the PDF')); return false; }
     const bin = await accFetchBin('p/' + id + '.bin'); if (!bin) { mxqToast('Could not download the PDF'); return false; }
     const raw = await accDecrypt(bin, r.key, 'p:' + id, false);
     window.__PDFR__[id] = raw; ACC_QMEM['p:' + id] = { v, c: raw }; await accQcPut({ ['p:' + id]: ACC_QMEM['p:' + id] });
