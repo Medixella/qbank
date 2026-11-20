@@ -1023,9 +1023,34 @@ const ANKI_DECKS = [
   { id: 'fcresp', title: 'Respiratory', file: 'Medixella_HighYield_Respiratory.apkg', mb: '4.6 MB' },
   { id: 'fcrheum', title: 'Rheumatology', file: 'Medixella_HighYield_Rheumatology.apkg', mb: '4.3 MB' }
 ];
+async function mxqLegPiece(name) {
+  // old activation-code users: extra files (Anki decks, Paediatrics sheets) are encrypted with the same key as their data file
+  const k = window.__LKEY__; if (!k || !(window.crypto && crypto.subtle) || !/^[a-z0-9]{1,20}$/.test(name)) return null;
+  const r = await fetch(new URL('lp/' + name + '.bin', location.href).href, { cache: 'force-cache' }); if (!r.ok) return null;
+  const buf = new Uint8Array(await r.arrayBuffer());
+  if (String.fromCharCode(buf[0], buf[1], buf[2], buf[3]) !== 'MXL1') return null;
+  const ck = await crypto.subtle.importKey('raw', k, 'AES-GCM', false, ['decrypt']);
+  return new Uint8Array(await crypto.subtle.decrypt({ name: 'AES-GCM', iv: buf.slice(4, 16), additionalData: new TextEncoder().encode('lp:' + name) }, ck, buf.slice(16)));
+}
+async function mxqLegPdf(id) {
+  if ((window.__PDFR__ || {})[id] || (window.__PDFS__ || {})[id] || !window.__LKEY__) return;
+  try { mxqToast('Opening PDF…'); const raw = await mxqLegPiece(id); if (raw) { window.__PDFR__ = window.__PDFR__ || {}; window.__PDFR__[id] = raw; } } catch (e) {}
+}
 async function mxqAnkiDownload(id) {
   const m = ANKI_DECKS.find(x => x.id === id); if (!m) return;
-  if (TRIAL || typeof MXQ_ACCT === 'undefined' || !MXQ_ACCT) { mxqToast('Anki flashcards are for subscribers. Tap "Get access".'); return; }
+  if (TRIAL) { if (typeof trLockedModal === 'function') trLockedModal('Anki flashcards'); return; }
+  if (!(typeof MXQ_ACCT !== 'undefined' && MXQ_ACCT) && !window.__LKEY__) { mxqToast('Log in to download the Anki decks'); return; }
+  if (!(typeof MXQ_ACCT !== 'undefined' && MXQ_ACCT)) {   // older activation-code users: the deck is an encrypted file opened with their own key
+    if (!navigator.onLine) { mxqToast('Connect to the internet to download this deck'); return; }
+    try {
+      mxqToast('Preparing ' + m.title + ' (' + m.mb + ')…');
+      const raw = await mxqLegPiece(id); if (!raw) { mxqToast('Download failed. Check your internet and try again'); return; }
+      const url = URL.createObjectURL(new Blob([raw], { type: 'application/octet-stream' })), a = document.createElement('a');
+      a.href = url; a.download = m.file; document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 120000); mxqToast('Downloaded. Open the file with Anki');
+    } catch (e) { mxqToast('Could not download right now. Try again'); }
+    return;
+  }
   if (!navigator.onLine) { mxqToast('Connect to the internet to download this deck'); return; }
   try {
     const auth = await accLoadFb(); const u = auth.currentUser || await accUser(auth);
@@ -1048,7 +1073,7 @@ function flashcardsHTML() {
   if (parts.length === 1) {
     h += `<div class="deck-list"><button class="deck-card med" data-group="flashcards:medicine"><div class="deck-ic">&#9877;</div><div class="deck-tx"><h3>Medicine</h3><p>Anki flashcards for final-year Medicine</p><span>${ANKI_DECKS.length} decks</span></div><div class="deck-go">&#8250;</div></button></div>`;
   } else {
-    const ok = !TRIAL && typeof MXQ_ACCT !== 'undefined' && MXQ_ACCT;
+    const ok = !TRIAL && ((typeof MXQ_ACCT !== 'undefined' && MXQ_ACCT) || !!window.__LKEY__);
     h += `<div style="margin:6px 16px 18px;padding:20px 18px;border-radius:20px;text-align:center;background:linear-gradient(135deg,#e8f6f1,#f3f9ff);border:1px solid #b5ddd0;box-shadow:0 6px 20px rgba(18,110,100,.10)"><img src="${ANKI_LOGO}" alt="Anki" style="width:46px;height:46px;object-fit:contain"><div style="font-weight:800;font-size:17px;color:#0b3b34;margin:6px 0 8px">Anki Flashcards &middot; Final Year Medicine</div><div style="font-size:14px;line-height:1.55;color:#24534b">These are Anki flashcards made for the final year Medicine subject, <b>based on LUMHS past papers</b>.<br>Download them, add them to the Anki app and start studying.</div>${ok ? '<div style="margin-top:12px;display:inline-block;padding:6px 14px;border-radius:50px;background:#fff;border:1px solid #b5ddd0;font-size:12.5px;color:#24534b">&#128246; Bigger decks are 10&ndash;26 MB, so download on Wi-Fi</div>' : ''}</div>`;
     h += `<div class="pdf-list">` + ANKI_DECKS.map(p => `<div class="pdf-card"><div class="deck-ic lg" style="width:48px;height:48px;margin:0"><img src="${ANKI_LOGO}" alt="Anki" style="width:30px;height:30px;object-fit:contain"></div><div class="pdf-tx"><h3>${escapeHtml(p.title)}</h3><p>Anki deck (.apkg) &middot; ${p.mb}</p></div><div class="pdf-btns">${ok ? `<button class="pdf-b read" data-anki-dl="${p.id}">Download deck</button>` : `<button class="pdf-b dl" data-anki-lock="1">&#128274; Get access</button>`}</div></div>`).join('') + `</div>`;
   }
@@ -1061,13 +1086,15 @@ function mxqPdfBlob(id) {
   for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i);
   return new Blob([u], { type: 'application/pdf' });
 }
-function mxqPdfDownload(id) {
+async function mxqPdfDownload(id) {
+  if (!mxqPdfBlob(id)) await mxqLegPdf(id);
   const m = SRC_ALL.find(x => x.id === id), bl = mxqPdfBlob(id); if (!m || !bl) { mxqToast('Log in with your account to open this PDF'); return; }
   const url = URL.createObjectURL(bl), a = document.createElement('a');
   a.href = url; a.download = m.file; document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 60000); mxqToast('Downloading PDF');
 }
-function mxqPdfRead(id) {
+async function mxqPdfRead(id) {
+  if (!mxqPdfBlob(id)) await mxqLegPdf(id);
   const m = SRC_ALL.find(x => x.id === id), bl = mxqPdfBlob(id); if (!m || !bl) { mxqToast('Log in with your account to open this PDF'); return; }
   const url = URL.createObjectURL(bl);
   const ov = document.createElement('div'); ov.id = 'pdfOv'; ov.className = 'pdf-ov';
@@ -2494,7 +2521,7 @@ async function mxqUnlockData(L, did) {
   else {
     const id = MXL.norm(did), idx = L.ids.map(MXL.norm).indexOf(id);
     if (idx < 0 || !L.wraps || !L.wraps[idx]) return 'nokey';
-    key = MXL.unwrapKey(L.wraps[idx], id);
+    key = MXL.unwrapKey(L.wraps[idx], id); window.__LKEY__ = key;
   }
   const r = await fetch(new URL(f, location.href).href, { cache: 'force-cache' });
   if (!r.ok) { const e = new Error('data ' + r.status); e.code = 'fetch'; throw e; }
@@ -3483,7 +3510,7 @@ function attachHomeEvents() {
   document.querySelectorAll('[data-group]').forEach(el => el.addEventListener('click', () => { homeGroup = el.getAttribute('data-group'); render(); window.scrollTo(0, 0); }));
   const gb = document.getElementById('grpBack'); if (gb) gb.addEventListener('click', () => { homeGroup = (homeGroup && homeGroup.indexOf(':') > 0) ? homeGroup.slice(0, homeGroup.lastIndexOf(':')) : null; render(); window.scrollTo(0, 0); });
   document.querySelectorAll('[data-anki-dl]').forEach(el => el.addEventListener('click', () => mxqAnkiDownload(el.getAttribute('data-anki-dl'))));
-  document.querySelectorAll('[data-anki-lock]').forEach(el => el.addEventListener('click', () => { if (typeof mxqToast === 'function') mxqToast('Anki flashcards are for subscribers. Message us on WhatsApp +92 337 3586048 for access'); }));
+  document.querySelectorAll('[data-anki-lock]').forEach(el => el.addEventListener('click', () => { if (TRIAL && typeof trLockedModal === 'function') trLockedModal('Anki flashcards'); else if (typeof mxqToast === 'function') mxqToast('Anki flashcards are for subscribers. Message us on WhatsApp +92 337 3586048 for access'); }));
   document.querySelectorAll('[data-pdf-read]').forEach(el => el.addEventListener('click', () => mxqPdfRead(el.getAttribute('data-pdf-read'))));
   document.querySelectorAll('[data-pdf-dl]').forEach(el => el.addEventListener('click', () => mxqPdfDownload(el.getAttribute('data-pdf-dl'))));
   document.querySelectorAll('[data-subject]').forEach(el => {
@@ -4897,7 +4924,7 @@ function trUsed(y) {
 function trYLeft(y) { return Math.max(0, TR_PER - trUsed(y)); }
 const TR_IG_SVG = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="#fff" stroke="none"/></svg>';
 const TR_WA_SVG = '<svg width="18" height="18" viewBox="0 0 24 24" fill="#fff"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm5.2 14.2c-.2.6-1.3 1.2-1.8 1.2-.5.1-1 .2-3.3-.7-2.8-1.2-4.6-4-4.7-4.2-.1-.2-1.1-1.5-1.1-2.8s.7-2 1-2.3c.2-.3.5-.3.7-.3h.5c.2 0 .4 0 .6.5l.9 2.1c.1.2.1.4 0 .5l-.4.6c-.1.2-.3.3-.1.6.2.3.8 1.3 1.7 2.1 1.2 1 2.1 1.3 2.4 1.5.3.1.5.1.6-.1l.9-1.1c.2-.3.4-.2.6-.1l2 1c.3.1.4.2.5.3.1.2.1.7-.1 1.2z"/></svg>';
-function trBtns() { return `<div class="tr-btns"><a class="lock-btn lock-ig" href="${MX_IG}" target="_blank" rel="noopener">${TR_IG_SVG}Instagram</a><a class="lock-btn lock-wa" href="${TR_WA}" target="_blank" rel="noopener">${TR_WA_SVG}WhatsApp</a></div><div class="tr-btns" style="margin-top:10px"><a class="lock-btn" style="background:#14B8A6;color:#06283A" href="../#access">Create new account</a></div>`; }
+function trBtns() { return `<div class="tr-btns"><a class="lock-btn lock-ig" href="${MX_IG}" target="_blank" rel="noopener">${TR_IG_SVG}Instagram</a><a class="lock-btn lock-wa" href="${TR_WA}" target="_blank" rel="noopener">${TR_WA_SVG}WhatsApp</a></div><div class="tr-btns" style="margin-top:10px"><a class="lock-btn" style="background:#14B8A6;color:#06283A" href="../#access">Create new account</a></div><div class="tr-btns" style="margin-top:10px"><a class="lock-btn" style="background:#fff;color:#06283A" href="../app/">Already have full access? Log in here</a></div>`; }
 
 // ---- memory of the trial: three places ----
 function trCookieGet() { try { const m = document.cookie.match(/(?:^|; )mxt_tr=([^;]*)/); return m ? JSON.parse(decodeURIComponent(m[1])) : null; } catch (e) { return null; } }
@@ -5053,12 +5080,13 @@ function trShowExpired() {
     <p class="lock-sub" style="font-size:16px;color:#fff;font-weight:700">Your 1-day free trial is expired.<br>Contact us for access.</p>
     <p class="lock-sub">To get full access to Medixella Qbank, contact us on:</p>
     ${trBtns()}
-    <div style="margin-top:16px"><a class="lock-btn ghost" href="https://medixella.github.io/qbank/app/" style="display:block;text-align:center;text-decoration:none">Already activated? Log in</a></div>
+    
     <div style="max-width:380px;margin:18px auto 0"><div class="tr-h3" style="color:#7ff0dd">What you get with full access</div><div style="color:#fff">${trPerksHTML()}</div></div>
     <div class="lock-foot">Medixella Qbank</div></div>`;
   window.scrollTo(0, 0);
 }
 async function trGate() {
+  try { if (window.localStorage.getItem('mxq:alease') || window.localStorage.getItem('mxq:lic')) { location.replace('../app/'); return false; } } catch (e) {}
   trCss();
   try { TR_OFF = parseInt(lsGet('tro') || '0', 10) || 0; } catch (e) {}
   TR = await trLoad();
