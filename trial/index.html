@@ -1546,6 +1546,11 @@ async function lbSync(force) {
     const wk = lbWeek(); let w = lbJSON('lb:wk', null);
     if (!w || w.week !== wk) { w = { week: wk, base: parseInt(lsGet('lb:last') || String(best), 10) }; lsSet('lb:wk', JSON.stringify(w)); }
     const name = (mxqName() || lsGet('lb:name') || 'Student').slice(0, 24);
+    // Firestore's free plan allows only 20,000 writes a day for ALL students together. Each upload below is 4 writes,
+    // so upload only when something changed (score, name, week/month/day), plus one refresh every 6 hours.
+    const sig = [best, name, wk, lbMonth(), lbDay(), ac].join('|');
+    if (lsGet('lb:sig') === sig && Date.now() - parseInt(lsGet('lb:sigt') || '0', 10) < 6 * 3600 * 1000) { lbLast = Date.now(); lbBusy = false; return; }
+    let dayFail = false;
     const H = { 'content-type': 'application/json', 'Authorization': 'Bearer ' + a.id };
     const now = Date.now();
     let r = await lbFetch(FS + '/leaderboard/' + a.uid + '?key=' + FB.key, { method: 'PATCH', headers: H, body: JSON.stringify({ fields: Object.assign({ name: { stringValue: name }, points: lbInt(best), answered: lbInt(p.answered), correct: lbInt(p.correct), updated: lbInt(now) }, acf) }) });
@@ -1559,8 +1564,10 @@ async function lbSync(force) {
     try {   // today's score (never blocks the other boards if it fails)
       const dy = lbDay(); let dd = lbJSON('lb:dy', null);
       if (!dd || dd.day !== dy) { dd = { day: dy, base: parseInt(lsGet('lb:last') || String(best), 10) }; lsSet('lb:dy', JSON.stringify(dd)); }
-      await lbFetch(FS + '/weekly/' + dy + '/scores/' + a.uid + '?key=' + FB.key, { method: 'PATCH', headers: H, body: JSON.stringify({ fields: Object.assign({ name: { stringValue: name }, points: lbInt(best - dd.base), updated: lbInt(now) }, acf) }) });
-    } catch (e2) {}
+      const rd = await lbFetch(FS + '/weekly/' + dy + '/scores/' + a.uid + '?key=' + FB.key, { method: 'PATCH', headers: H, body: JSON.stringify({ fields: Object.assign({ name: { stringValue: name }, points: lbInt(best - dd.base), updated: lbInt(now) }, acf) }) });
+      if (!rd.ok) dayFail = true;
+    } catch (e2) { dayFail = true; }
+    if (!dayFail) { lsSet('lb:sig', sig); lsSet('lb:sigt', String(Date.now())); }
     lsSet('lb:last', String(best)); lbLast = Date.now(); lb401 = false; lbState.err = ''; lbState.syncFail = ''; try { lsSet('lb:syncfail', ''); } catch (e4) {}
   } catch (e) {
     if (/write 401/.test(e.message) && !lb401) { lb401 = true; try { const a0 = lbJSON('lb:auth', null); if (a0) { a0.exp = 0; lsSet('lb:auth', JSON.stringify(a0)); } } catch (e5) {} lbBusy = false; return lbSync(true); }
