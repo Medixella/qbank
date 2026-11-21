@@ -1531,8 +1531,7 @@ async function lbSync(force) {
         if (cur.uid !== old.uid) {
           const t = await lbTokenFrom(old);
           if (t) {
-            const wk0 = lbWeek(), mo0 = lbMonth();
-            for (const p of ['/leaderboard/', '/weekly/' + wk0 + '/scores/', '/weekly/' + mo0 + '/scores/']) {
+            for (const p of ['/leaderboard/']) {
               const url = FS + p + old.uid + '?key=' + FB.key, H0 = { 'content-type': 'application/json', 'Authorization': 'Bearer ' + t };
               let rr = await lbFetch(url, { method: 'DELETE', headers: H0 });
               if (!rr.ok) await lbFetch(url, { method: 'PATCH', headers: H0, body: JSON.stringify({ fields: Object.assign({ name: { stringValue: 'Student' }, points: lbInt(0), updated: lbInt(Date.now()) }, (await lbAcct()) ? { acct: { stringValue: await lbAcct() } } : {}) }) });
@@ -1547,28 +1546,15 @@ async function lbSync(force) {
     const wk = lbWeek(); let w = lbJSON('lb:wk', null);
     if (!w || w.week !== wk) { w = { week: wk, base: parseInt(lsGet('lb:last') || String(best), 10) }; lsSet('lb:wk', JSON.stringify(w)); }
     const name = (mxqName() || lsGet('lb:name') || 'Student').slice(0, 24);
-    // Firestore's free plan allows only 20,000 writes a day for ALL students together. Each upload below is 4 writes,
-    // so upload only when something changed (score, name, week/month/day), plus one refresh every 6 hours.
-    const sig = [best, name, wk, lbMonth(), lbDay(), ac].join('|');
+    // The leaderboard is all-time only: one write per upload, and only when the score or name changed (plus one refresh every 6 hours).
+    const sig = [best, name, ac].join('|');
     if (lsGet('lb:sig') === sig && Date.now() - parseInt(lsGet('lb:sigt') || '0', 10) < 6 * 3600 * 1000) { lbLast = Date.now(); lbBusy = false; return; }
     let dayFail = false;
     const H = { 'content-type': 'application/json', 'Authorization': 'Bearer ' + a.id };
     const now = Date.now();
     let r = await lbFetch(FS + '/leaderboard/' + a.uid + '?key=' + FB.key, { method: 'PATCH', headers: H, body: JSON.stringify({ fields: Object.assign({ name: { stringValue: name }, points: lbInt(best), answered: lbInt(p.answered), correct: lbInt(p.correct), updated: lbInt(now) }, acf) }) });
     if (!r.ok) throw new Error('write ' + r.status);
-    r = await lbFetch(FS + '/weekly/' + wk + '/scores/' + a.uid + '?key=' + FB.key, { method: 'PATCH', headers: H, body: JSON.stringify({ fields: Object.assign({ name: { stringValue: name }, points: lbInt(best - w.base), updated: lbInt(now) }, acf) }) });
-    if (!r.ok) throw new Error('write ' + r.status);
-    const mo = lbMonth(); let m = lbJSON('lb:mo', null);
-    if (!m || m.month !== mo) { m = { month: mo, base: parseInt(lsGet('lb:last') || String(best), 10) }; lsSet('lb:mo', JSON.stringify(m)); }
-    r = await lbFetch(FS + '/weekly/' + mo + '/scores/' + a.uid + '?key=' + FB.key, { method: 'PATCH', headers: H, body: JSON.stringify({ fields: Object.assign({ name: { stringValue: name }, points: lbInt(best - m.base), updated: lbInt(now) }, acf) }) });
-    if (!r.ok) throw new Error('write ' + r.status);
-    try {   // today's score (never blocks the other boards if it fails)
-      const dy = lbDay(); let dd = lbJSON('lb:dy', null);
-      if (!dd || dd.day !== dy) { dd = { day: dy, base: parseInt(lsGet('lb:last') || String(best), 10) }; lsSet('lb:dy', JSON.stringify(dd)); }
-      const rd = await lbFetch(FS + '/weekly/' + dy + '/scores/' + a.uid + '?key=' + FB.key, { method: 'PATCH', headers: H, body: JSON.stringify({ fields: Object.assign({ name: { stringValue: name }, points: lbInt(best - dd.base), updated: lbInt(now) }, acf) }) });
-      if (!rd.ok) dayFail = true;
-    } catch (e2) { dayFail = true; }
-    if (!dayFail) { lsSet('lb:sig', sig); lsSet('lb:sigt', String(Date.now())); }
+    lsSet('lb:sig', sig); lsSet('lb:sigt', String(Date.now()));
     lsSet('lb:last', String(best)); lbLast = Date.now(); lb401 = false; lbState.err = ''; lbState.syncFail = ''; try { lsSet('lb:syncfail', ''); } catch (e4) {}
   } catch (e) {
     if (/write 401/.test(e.message) && !lb401) { lb401 = true; try { const a0 = lbJSON('lb:auth', null); if (a0) { a0.exp = 0; lsSet('lb:auth', JSON.stringify(a0)); } } catch (e5) {} lbBusy = false; return lbSync(true); }
@@ -1593,7 +1579,7 @@ async function lbRankOf(parent, coll, pts) {
 function lbCacheRead() {
   if (lbState.top || lbState.weekTop || lbState.monthTop || lbState.dayTop) return;
   const c = lbJSON('lb:cache', null);
-  if (c && c.v === 21) { lbState.top = c.top; lbState.weekTop = c.weekTop; lbState.monthTop = c.monthTop; lbState.rankAll = c.rankAll; lbState.rankWeek = c.rankWeek; lbState.rankMonth = c.rankMonth; lbState.dayTop = c.dayKey === lbDay() ? c.dayTop : null; lbState.rankDay = c.dayKey === lbDay() ? c.rankDay : null; lbState.atm = c.atm || {}; lbState.at = c.at || 0; }
+  if (c && (c.v === 21 || c.v === 22)) { lbState.top = c.top; lbState.weekTop = c.weekTop; lbState.monthTop = c.monthTop; lbState.rankAll = c.rankAll; lbState.rankWeek = c.rankWeek; lbState.rankMonth = c.rankMonth; lbState.dayTop = c.dayKey === lbDay() ? c.dayTop : null; lbState.rankDay = c.dayKey === lbDay() ? c.rankDay : null; lbState.atm = c.atm || {}; lbState.at = c.at || 0; }
 }
 function lbReason(e) {
   const m = (e && e.message) || '';
@@ -1613,14 +1599,11 @@ async function lbLoad(force) {
   lbState.loading = true; lbState.loadAt = Date.now(); lbState.err = ''; lbState.stale = ''; if (currentScreen === 'leaders') render();
   try {
     try { await Promise.race([lbSync(true), new Promise(r => setTimeout(r, 6000))]); } catch (e0) {}   // upload my latest score first (max 6 s) so the list matches Home
-    const wk = lbWeek(), mo = lbMonth(), dy = lbDay(), best = parseInt(lsGet('lb:best') || '0', 10), w = lbJSON('lb:wk', null), wp = w ? best - w.base : 0, m = lbJSON('lb:mo', null), mp = m ? best - m.base : 0;
-    const dj = lbJSON('lb:dy', null), dp = dj && dj.day === dy ? best - dj.base : 0;
-    const lq = md === 'day' ? lbQuery('/weekly/' + dy, 'scores', 20).then(l => l.filter(x => x.points > 0)) : md === 'week' ? lbQuery('/weekly/' + wk, 'scores', 20) : md === 'month' ? lbQuery('/weekly/' + mo, 'scores', 20) : lbQuery('', 'leaderboard', 20);
-    const [list, r1, r2, r3, r4] = await Promise.all([lq, lbRankOf('', 'leaderboard', best).catch(() => null), lbRankOf('/weekly/' + wk, 'scores', wp).catch(() => null), lbRankOf('/weekly/' + mo, 'scores', mp).catch(() => null), md === 'day' ? lbRankOf('/weekly/' + dy, 'scores', dp).catch(() => null) : Promise.resolve(lbState.rankDay)]);
-    if (md === 'day') lbState.dayTop = list; else if (md === 'week') lbState.weekTop = list; else if (md === 'month') lbState.monthTop = list; else lbState.top = list;
-    if (r1 != null) lbState.rankAll = r1; if (r2 != null) lbState.rankWeek = r2; if (r3 != null) lbState.rankMonth = r3; if (r4 != null) lbState.rankDay = r4;
-    lbState.dayKey = dy; lbState.at = Date.now(); lbState.atm = Object.assign(lbState.atm || {}, { [md]: lbState.at });
-    lsSet('lb:cache', JSON.stringify({ top: lbState.top, weekTop: lbState.weekTop, monthTop: lbState.monthTop, dayTop: lbState.dayTop, rankDay: lbState.rankDay, dayKey: dy, rankAll: lbState.rankAll, rankWeek: lbState.rankWeek, rankMonth: lbState.rankMonth, atm: lbState.atm, at: lbState.at, v: 21 }));
+    const best = parseInt(lsGet('lb:best') || '0', 10);
+    const [list, r1] = await Promise.all([lbQuery('', 'leaderboard', 20), lbRankOf('', 'leaderboard', best).catch(() => null)]);
+    lbState.top = list; if (r1 != null) lbState.rankAll = r1;
+    lbState.at = Date.now(); lbState.atm = Object.assign(lbState.atm || {}, { [md]: lbState.at });
+    lsSet('lb:cache', JSON.stringify({ top: lbState.top, rankAll: lbState.rankAll, atm: lbState.atm, at: lbState.at, v: 22 }));
   } catch (e) { const why = lbReason(e); if (lbListOf(md)) lbState.stale = why; else lbState.err = why; }
   lbState.loading = false; if (currentScreen === 'leaders') render(); else if (currentScreen === 'home') homeMedalFill();
 }
@@ -1630,7 +1613,7 @@ function mxMedalInfo() {
   try {
     if (TRIAL || !lsGet('lb:on')) return null;
     lbCacheRead();
-    const c = [[lbState.rankAll, 'on the Leaderboard'], [lbState.rankMonth, 'this month'], [lbState.rankWeek, 'this week']];
+    const c = [[lbState.rankAll, 'on the Leaderboard']];
     let b = null; for (const x of c) if (x[0] >= 1 && x[0] <= 3 && (!b || x[0] < b[0])) b = x;
     return b ? { r: b[0], label: b[1] } : null;
   } catch (e) { return null; }
@@ -1647,7 +1630,7 @@ function homeMedalFill() {
 }
 function goLeaders() { lbCacheRead(); currentScreen = 'leaders'; render(); window.scrollTo(0, 0); lbLoad(); }
 function lbInit(n) { const w = (n || '').trim().split(/\s+/).filter(Boolean); return ((w[0] || '?')[0] + (w[1] ? w[1][0] : (w[0] || '').length > 1 ? w[0][1] : '')).toUpperCase(); }
-const LB_MODES = { day: 'Today', week: 'Weekly', month: 'Monthly', all: 'All time' };
+const LB_MODES = { all: 'All time' };
 function leadersHTML() {
   const on = !!lsGet('lb:on'), me = (lbJSON('lb:auth', {}) || {}).uid, md = lbState.mode;
   const best = parseInt(lsGet('lb:best') || '0', 10), w = lbJSON('lb:wk', null), wp = w && w.week === lbWeek() ? best - w.base : 0, m = lbJSON('lb:mo', null), mp = m && m.month === lbMonth() ? best - m.base : 0;
@@ -1658,9 +1641,9 @@ function leadersHTML() {
   const sub = r => md === 'all' && r.answered ? Math.round(100 * r.correct / r.answered) + '% accuracy &bull; ' + r.answered + ' questions' : (md === 'all' ? '' : 'earned ' + (md === 'day' ? 'today' : md === 'week' ? 'this week' : 'this month'));
   const svgCal = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>';
   let h = `<div class="lb2"><div class="lb2-head"><h2>&#127942; Leaderboard</h2><p>Track your progress, compare scores, and climb the rankings with every practice session.</p></div>`;
-  h += `<div class="lb2-dd"><button class="lb2-ddb" id="lbDD">${svgCal}<b>${LB_MODES[md]}</b><svg class="lb2-chev ${lbState.dd ? 'up' : ''}" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></button>`;
-  if (lbState.dd) h += `<div class="lb2-menu">${Object.keys(LB_MODES).map(k => `<button class="${k === md ? 'on' : ''}" data-lbmode="${k}"><i>${k === md ? '&#10003;' : ''}</i>${LB_MODES[k]}</button>`).join('')}</div>`;
-  h += `</div>`;
+  if (Object.keys(LB_MODES).length > 1) h += `<div class="lb2-dd"><button class="lb2-ddb" id="lbDD">${svgCal}<b>${LB_MODES[md]}</b><svg class="lb2-chev ${lbState.dd ? 'up' : ''}" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></button>`;
+  if (lbState.dd && Object.keys(LB_MODES).length > 1) h += `<div class="lb2-menu">${Object.keys(LB_MODES).map(k => `<button class="${k === md ? 'on' : ''}" data-lbmode="${k}"><i>${k === md ? '&#10003;' : ''}</i>${LB_MODES[k]}</button>`).join('')}</div>`;
+  if (Object.keys(LB_MODES).length > 1) h += `</div>`;
   h += `<div class="lb2-card lb2-mine"><div class="lb2-cap">&#127919; Your Current Rank</div><div class="lb2-mrow"><div class="lb2-av big">${escapeHtml(lbInit(myName))}</div><div class="lb2-mi"><b>${escapeHtml(myName)}</b><span>Total Score: ${myPts}</span><span>${LB_MODES[md]} / Medixella</span></div><div class="lb2-rk"><strong>${rank ? '#' + rank : '...'}</strong><span>Current Rank</span></div></div></div>`;
   if (lbState.syncFail && !lbState.err) h += `<div class="lb2-card"><p class="lb-note">Your latest score could not be uploaded yet, so the list may show an older score. Check your internet and open this page again.</p></div>`;
   if (lbState.stale) h += `<div class="lb2-card"><p class="lb-note">Showing the list saved ${lbAgo((lbState.atm || {})[md])}. ${escapeHtml(lbState.stale)}</p><button class="ai-go" id="lbRetry">Try again</button></div>`;
