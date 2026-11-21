@@ -1238,7 +1238,8 @@ function hlContainers() {
   const root = document.querySelector('.qbody'); if (!root) return [];
   const out = [];
   root.querySelectorAll('.qstem').forEach((el, i) => out.push(['s' + i, el]));
-  root.querySelectorAll('.otext').forEach((el, i) => out.push(['o' + i, el]));
+  { const _hq = currentQuestion(), _hk = _hq ? Object.keys(_hq.options || {}) : [];
+    root.querySelectorAll('.otext').forEach((el, i) => { const po = el.parentNode && el.parentNode.getAttribute && el.parentNode.getAttribute('data-opt'); const oi = po ? _hk.indexOf(po) : -1; out.push(['o' + (oi >= 0 ? oi : i), el]); }); }
   root.querySelectorAll('.explain-box p, .explain-box .pearl-box, .explain-box li').forEach((el, i) => out.push(['e' + i, el]));
   return out;
 }
@@ -1422,8 +1423,8 @@ async function aiSend(text) {
   const chat = aiChat(q.id);
   chat.push({ role: 'user', content: text }); aiChats[q.id + ':busy'] = true; aiRefresh();
   const inp = document.getElementById('aiIn'); if (inp) inp.value = '';
-  const opts = Object.keys(q.options).map(l => l + '. ' + q.options[l]).join('\n');
-  const sys = 'You are a friendly, accurate tutor for a final-year MBBS student in Pakistan preparing for university exams. Answer clearly and concisely in plain language, with short bullet points where helpful. You may answer any question, related to the MCQ or not. If you are not sure, say so. The student is looking at this MCQ:\n\nQuestion: ' + q.stem + '\n' + opts + '\nCorrect answer: ' + q.correct_letter + '\nExplanation shown to the student: ' + (q.why_correct || '') + (q.take_home ? '\nTake-home: ' + q.take_home : '');
+  const opts = mxOrder(q).map(l => mxShown(q, l) + '. ' + q.options[l]).join('\n');
+  const sys = 'You are a friendly, accurate tutor for a final-year MBBS student in Pakistan preparing for university exams. Answer clearly and concisely in plain language, with short bullet points where helpful. You may answer any question, related to the MCQ or not. If you are not sure, say so. The student is looking at this MCQ:\n\nQuestion: ' + q.stem + '\n' + opts + '\nCorrect answer: ' + mxShown(q, q.correct_letter) + '\nExplanation shown to the student: ' + (q.why_correct || '') + (q.take_home ? '\nTake-home: ' + q.take_home : '');
   const ctx = chat.slice();
   const reply = { role: 'assistant', content: '' }; chat.push(reply);
   let lastPaint = 0;
@@ -1685,6 +1686,41 @@ function attachLeadersEvents() {
 let homeGroup = null;
 let setup = { subject: null, systems: [], topics: [], query: '', open: {}, count: 20, mode: 'timed', flaggedOnly: false, incorrectOnly: false };
 let session = null;       // active quiz session
+// ---- Option shuffle: every block shows each question's options in a fresh random order ----
+// Answers are always stored with the ORIGINAL letters (so scoring, mistakes and history never change);
+// only what is drawn on screen is re-lettered. Questions whose options point at each other
+// ("All of the above", "Both B and C") or whose explanation names a letter keep their original order.
+const MX_OPT_LINK = /\b(all|none|neither|any|both|either)\s+(of\s+)?(the\s+)?(above|these|them|those|options|answers)\b|\b(all|none)\s+of\s+above\b|^\s*\(?[A-E]\)?\s*(,|and|&|\+|or)\s*\(?[A-E]\)?(\s*(,|and|&|\+)\s*\(?[A-E]\)?)*\s*(only|both|are|is)?\.?\s*$|^\s*(both|only|either)\s+\(?[A-E]\)?\b|\bnot\s+[A-E]\b/i;
+const MX_TXT_LINK = /\b(option|choice|answer|statement|distractor)s?\s+\(?[A-E]\b|\boptions?\s+[A-E]\s*(,|and|&)|\(\s*[A-E]\s*\)\s|\b[A-E]\s*(,|and|&)\s*[A-E]\s+(are|is|both|only|together)\b|source-key answer/i;
+function mxCanShuffle(q) {
+  const ks = Object.keys(q.options || {});
+  if (ks.length < 3) return false;
+  if (ks.some(k => MX_OPT_LINK.test(String(q.options[k])))) return false;
+  const t = [q.why_correct || '', q.take_home || ''].concat(Object.values(q.why_wrong || {}).map(String)).join(' ');
+  if (MX_TXT_LINK.test(t)) return false;
+  return true;
+}
+function mxOrder(q) {
+  const ks = Object.keys(q.options);
+  if (!session || q.stub) return ks;
+  if (!session.perm) session.perm = {};
+  let p = session.perm[q.id];
+  if (p === undefined) {
+    if (session.finished || !mxCanShuffle(q)) p = null;
+    else {
+      p = ks.slice();
+      for (let i = p.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); const t = p[i]; p[i] = p[j]; p[j] = t; }
+      if (p.every((k, i) => k === ks[i])) p.push(p.shift());
+    }
+    session.perm[q.id] = p;
+  }
+  return (p && p.length === ks.length && p.every(k => k in q.options)) ? p : ks;
+}
+function mxShown(q, orig) {   // the letter the student sees for an option
+  const ks = Object.keys(q.options), o = mxOrder(q);
+  if (o === ks || o.every((k, i) => k === ks[i])) return orig;
+  const ix = o.indexOf(orig); return ix < 0 ? orig : String.fromCharCode(65 + ix);
+}
 let statsCache = null;    // cached local stats object
 let session_justReset = false; // tracks whether the last pool build had to reset (all mastered)
 
@@ -2647,7 +2683,7 @@ async function openCompleted(date) {
   if (!qs.length) { mxqToast('These questions are not available any more'); return; }
   session = {
     id: 'done-' + date, kind: rec.kind, title: rec.title || '', subject: rec.subject, systems: rec.systems || [],
-    questions: qs, idx: 0, answers: rec.answers || {}, submitted: rec.submitted || {}, skipped: rec.skipped || {}, undo: {}, dayInfo: {}, flags: {},
+    questions: qs, idx: 0, answers: rec.answers || {}, submitted: rec.submitted || {}, skipped: rec.skipped || {}, undo: {}, dayInfo: {}, perm: rec.perm || {}, flags: {},
     startedAt: date, created: date, secondsElapsed: rec.secs || 0, timerId: null,
     mode: rec.mode, reviewMode: rec.rmode || 'immediate', limit: rec.limit || 0, finished: true, finishedAt: date, justResetPool: false,
   };
@@ -2794,7 +2830,7 @@ function saveSession() {
     id: session.id, kind: session.kind, title: session.title, subject: session.subject, systems: session.systems,
     qids: session.questions.map(q => q.id), idx: session.idx, answers: session.answers, submitted: session.submitted,
     skipped: session.skipped || {}, undo: session.undo || {}, mode: session.mode, reviewMode: session.reviewMode, secondsElapsed: session.secondsElapsed,
-    created: session.created, updated: Date.now(), limit: session.limit || 0, dayInfo: session.dayInfo || {}
+    created: session.created, updated: Date.now(), limit: session.limit || 0, dayInfo: session.dayInfo || {}, perm: session.perm || {}
   };
   const a = loadBlocks(); const i = a.findIndex(x => x.id === rec.id);
   if (i < 0) a.push(rec); else a[i] = rec;
@@ -2843,7 +2879,7 @@ async function resumeBlock(id) {
   const stats = await getLocalStats();
   session = {
     id: rec.id, kind: rec.kind, title: rec.title, subject: rec.subject, systems: rec.systems || [],
-    questions: qs, idx: Math.min(rec.idx || 0, qs.length - 1), answers: rec.answers || {}, submitted: rec.submitted || {}, skipped: rec.skipped || {}, undo: rec.undo || {}, dayInfo: rec.dayInfo || {}, flags: {},
+    questions: qs, idx: Math.min(rec.idx || 0, qs.length - 1), answers: rec.answers || {}, submitted: rec.submitted || {}, skipped: rec.skipped || {}, undo: rec.undo || {}, dayInfo: rec.dayInfo || {}, perm: rec.perm || {}, flags: {},
     startedAt: Date.now(), created: rec.created, secondsElapsed: rec.secondsElapsed || 0, timerId: null,
     mode: rec.mode, reviewMode: rec.reviewMode || 'immediate', limit: rec.limit || 0, finished: false, justResetPool: false,
   };
@@ -2983,7 +3019,7 @@ async function finishQuiz() {
     title: session.title || '',
     // everything needed to open this block again later (highlights, notes and flags are saved per question already)
     qids: session.questions.map(q => q.id), answers: Object.assign({}, session.answers), submitted: Object.assign({}, session.submitted),
-    skipped: Object.assign({}, session.skipped || {}), secs: session.secondsElapsed || 0, limit: session.limit || 0, mode: session.mode || '', rmode: session.reviewMode || 'immediate',
+    skipped: Object.assign({}, session.skipped || {}), perm: Object.assign({}, session.perm || {}), secs: session.secondsElapsed || 0, limit: session.limit || 0, mode: session.mode || '', rmode: session.reviewMode || 'immediate',
   });
   await saveLocalStats();
   session.finished = true;
@@ -3898,7 +3934,7 @@ function quizHTML() {
   html += `<div class="flag-row"><button class="flag-btn ${session.flags[q.id]?'flagged':''}" id="flagBtn">&#9873; ${session.flags[q.id]?'Flagged':'Flag for review'}</button></div>`;
 
   html += `<div class="qoptions">`;
-  for (const letter of Object.keys(q.options)) {
+  for (const letter of mxOrder(q)) {
     let cls = 'qopt';
     if (submitted) {
       cls += ' disabled';
@@ -3911,7 +3947,7 @@ function quizHTML() {
       cls += ' picked';
     }
     html += `<div class="${cls}" data-opt="${letter}">
-      <div class="letter">${letter}</div>
+      <div class="letter">${mxShown(q, letter)}</div>
       <div class="otext">${escapeHtml(q.options[letter])}</div>
     </div>`;
   }
@@ -3921,12 +3957,13 @@ function quizHTML() {
     const correct = picked === q.correct_letter;
     html += `<div class="explain-box">`;
     { const _t = qChips(q).topic; if (_t && !/^other\s*\/\s*mixed$/i.test(_t)) html += `<div class="explain-sec" style="margin-top:0"><h4>Topic</h4><p>${escapeHtml(_t)}</p></div>`; }
-    html += `<div class="explain-verdict ${correct?'ok':'no'}">${correct ? '&#10003; Correct' : '&#10007; Incorrect'} — Answer: ${q.correct_letter}. ${escapeHtml(q.options[q.correct_letter])}</div>`;
+    html += `<div class="explain-verdict ${correct?'ok':'no'}">${correct ? '&#10003; Correct' : '&#10007; Incorrect'} — Answer: ${mxShown(q, q.correct_letter)}. ${escapeHtml(q.options[q.correct_letter])}</div>`;
     html += `<div class="explain-sec ex-good"><h4>Why this is correct</h4><p>${escapeHtml(q.why_correct)}</p></div>`;
     if (q.why_wrong && Object.keys(q.why_wrong).length) {
       html += `<div class="explain-sec ex-bad"><h4>Why the others are wrong</h4>`;
-      for (const [letter, txt] of Object.entries(q.why_wrong)) {
-        html += `<p class="wrong-item"><b>${letter}.</b> ${escapeHtml(txt)}</p>`;
+      const _wo = mxOrder(q), _wk = Object.keys(q.why_wrong).sort((a, b) => _wo.indexOf(a) - _wo.indexOf(b));
+      for (const letter of _wk) { const txt = q.why_wrong[letter];
+        html += `<p class="wrong-item"><b>${mxShown(q, letter)}.</b> ${escapeHtml(txt)}</p>`;
       }
       html += `</div>`;
     }
