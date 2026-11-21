@@ -160,6 +160,7 @@ button{font-family:inherit;}
 .explain-sec.ex-bad{background:#fdeaea;border-left-color:#e0605c}.explain-sec.ex-bad h4{color:#b3302c}
 .ex-bad .wrong-item{border-left:0;padding-left:0;margin:0 0 8px}.ex-bad .wrong-item:last-child{margin-bottom:0}
 .pearl-box{background:var(--gold-light);border-radius:var(--radius-sm);padding:12px 14px;font-size:13.5px;line-height:1.55;color:#5c3d0c;}
+.qyr{white-space:nowrap;font-weight:700;color:var(--teal);}
 .source-line{font-size:11.5px;color:var(--ink-soft);margin-top:12px;font-style:italic;}
 
 .quiz-footer{padding:12px 16px;border-top:1px solid var(--line);background:var(--paper);display:flex;gap:10px;}
@@ -1716,6 +1717,38 @@ function mxOrder(q) {
   }
   return (p && p.length === ks.length && p.every(k => k in q.options)) ? p : ks;
 }
+// ---- Year of the past paper, shown at the end of the question ----
+function mxYears(src) {
+  if (!src) return [];
+  let s = String(src).split(' | ')[0];
+  s = s.replace(/CamScanner[\d ]+/g, ' ').replace(/WhatsApp Image [\d-]+/gi, ' ').replace(/\(page \d+ of the file[^)]*\)/gi, ' ').replace(/(?:\bNOTE\b|\bRelated\b|\bSame concept\b|\bCONFLICT\b|\bCompare\b)[^·|]*/g, ' ');
+  if (/\band earlier years?\b|year not stated|date not visible/i.test(s)) s = s.replace(/\b(?:19|20)\d\d\b[^;)]*\band earlier years?/gi, ' ');
+  // file names, quoted titles, "prepared"/"held" notes and batch labels are not the exam year
+  s = s.replace(/\(\s*file:?[^)]*\)/gi, ' ').replace(/\bfile:?\s*'[^']*'/gi, ' ').replace(/\bfile:[^·;|]*/gi, ' ')
+       .replace(/'[^']*\.(pdf|docx?|png|jpg)'/gi, ' ').replace(/\([^()]*\.(?:pdf|docx?)[^()]*\)/gi, ' ').replace(/\S+\.(?:pdf|docx?)\b/gi, ' ')
+       .replace(/\bprepared\s+\w+\s+\d{4}/gi, ' ').replace(/\bbatch\s*\d{4}\s*[-–\/]\s*\d{2,4}/gi, ' ')
+       .replace(/\((?:\s*(?:19|20)\d\d\s*[-–\/]\s*\d{2}\s*)\)(?=\s*(annual|exam|supplementary))/gi, ' ')
+       .replace(/\b(?:19|20)\d\d\s*[-–]\s*(?:19|20)\d\d\b/g, ' ');            // spans like 2012-2018 = many years, not one
+  const out = [];
+  const add = y => { if (out.indexOf(y) < 0) out.push(y); };
+  const named = [];
+  // 1) session pairs: 2025-26, 2015/16 (consecutive years)
+  s = s.replace(/(^|[^\d-])((?:19|20)(\d\d))\s*[-\/]\s*(\d\d)(?![\d-])/g, (m, p, y, yy, z) => {
+    if ((+yy + 1) % 100 === +z) { add(y + '-' + z); named.push(y); } return p + ' ';
+  });
+  // 2) a named exam year followed by its sitting date (Annual 2023-10-01-2024, 2021-27-04-2022) -> keep the named year
+  s = s.replace(/(^|[^\d-])((?:19|20)\d\d)[-–]\d{1,2}[-–]\d{1,2}[-–](?:19|20)\d\d/g, (m, p, y) => { add(y); named.push(y); return p + ' '; });
+  // 3) a sitting date written after a named year -> ignore the date
+  const hasNamed = /\b(annual|bi-?annual|regular|resit|supply|supplementary|online|pre-?annual|mega test|semester|internal evaluation)\b[^.;()]{0,25}\b(?:19|20)\d\d\b|\b(?:19|20)\d\d\s+(annual|bi-?annual|regular|resit|supply|supplementary|online|pre-?annual)/i.test(s);
+  if (hasNamed) s = s.replace(/\(\s*(?:held\s+|dated\s+)?\d{1,2}[-–\/]\d{1,2}[-–\/](?:19|20)\d\d\s*\)/gi, ' ').replace(/\bheld\s+\d{1,2}[-–\/]\d{1,2}[-–\/](?:19|20)\d\d/gi, ' ');
+  { const nm = (s.match(/\b(?:annual|bi-?annual|regular|resit|supply|supplementary|online|examination|exam)s?\b[^.;()]{0,25}?\b((?:19|20)\d\d)\b/i) || [])[1];
+    if (nm) s = s.replace(/\b\d{1,2}[-–\/](0?[1-6])[-–\/]((?:19|20)\d\d)\b/g, (m, mo, yr) => (+yr === +nm + 1 ? ' ' : m)); }
+  s.replace(/(^|[^\d.])((?:19|20)\d\d)(?![\d])/g, (m, p, y) => { if (+y <= 2026) add(y); return m; });
+  // pair years already represented by a 'YYYY-YY' label should not appear twice
+  return out.filter(y => y.length > 4 || !out.some(o => o.length > 4 && o.slice(0, 4) === y));
+}
+function mxYearTag(q) { const y = mxYears(q && q.source); return y.length ? y.sort().join(', ') : ''; }
+
 function mxShown(q, orig) {   // the letter the student sees for an option
   const ks = Object.keys(q.options), o = mxOrder(q);
   if (o === ks || o.every((k, i) => k === ks[i])) return orig;
@@ -3929,7 +3962,7 @@ function quizHTML() {
   const _ch = qChips(q);
   html += `<div class="qmeta"><span class="tag subj">${escapeHtml(_ch.subj)}</span><span class="tag sys">${escapeHtml(_ch.sys)}</span>${q.is_new ? '<span class="tag new">New</span>' : ''}</div>`;
   html += `<div class="hl-wrap ${qtHl ? 'open' : ''}" id="hlWrap"><div class="hl-strip"><span class="hl-lbl">Highlighter</span>${['y','o','g','p'].map(c => `<button class="hl-sd ${hlActive===c?'on':''}" data-hls="${c}" style="background:${HL_COLORS[c]}" aria-label="highlight colour"></button>`).join('')}<button class="hl-sd hl-se ${hlActive==='x'?'on':''}" data-hls="x" aria-label="eraser">&#10005;</button><span class="hl-hint" id="hlHint">${hlActive==='x' ? 'Eraser on: select highlighted text to remove it' : hlActive ? 'Select any text and it turns this colour' : 'Tap a colour, then select text'}</span></div></div>`;
-  html += `<p class="qstem">${escapeHtml(q.stem)}</p>`;
+  { const _yt = mxYearTag(q); html += `<p class="qstem">${escapeHtml(q.stem)}${_yt ? ' <span class="qyr">(' + escapeHtml(_yt) + ')</span>' : ''}</p>`; }
 
   html += `<div class="flag-row"><button class="flag-btn ${session.flags[q.id]?'flagged':''}" id="flagBtn">&#9873; ${session.flags[q.id]?'Flagged':'Flag for review'}</button></div>`;
 
