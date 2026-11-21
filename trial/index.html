@@ -1565,6 +1565,8 @@ function lbSyncSoon() { if (!lsGet('lb:on')) return; clearTimeout(lbT); lbT = se
 window.addEventListener('online', () => lbSync(false));
 setInterval(() => { try { if (!document.hidden && lsGet('lb:on')) lbSync(false); } catch (e) {} }, 90000);
 document.addEventListener('visibilitychange', () => { try { if (!document.hidden && lsGet('lb:on')) lbSync(false); } catch (e) {} });
+// while the Leaderboard screen is open, refresh the list by itself every minute
+setInterval(() => { try { if (!document.hidden && currentScreen === 'leaders' && navigator.onLine) lbLoad(true); } catch (e) {} }, 60000);
 async function lbQuery(parent, coll, n) {
   const r = await lbFetch(FS + parent + ':runQuery?key=' + FB.key, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ structuredQuery: { from: [{ collectionId: coll }], orderBy: [{ field: { fieldPath: 'points' }, direction: 'DESCENDING' }], limit: n } }) });
   const j = await r.json(); if (!r.ok) { const e = new Error('query ' + r.status); throw e; }
