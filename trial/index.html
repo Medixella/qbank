@@ -1765,7 +1765,7 @@ const STORAGE_AVAILABLE = typeof window !== 'undefined' && !!window.storage
 const memoryStore = {};
 
 function lsGet(k){ try { return window.localStorage.getItem(LSP + k); } catch (e) { return null; } }
-const ACC_SYNC_RE = /^(priv:mystats:|blocks$|hl:|qn:|ln:|goal$|exam$|name$|name_at$|lb:name$|lb:auth$|lb:wk$|lb:mo$|lb:best$|uni$|year$)/;
+const ACC_SYNC_RE = /^(priv:mystats:|blocks$|blocks:del$|hl:|qn:|ln:|goal$|exam$|name$|name_at$|lb:name$|lb:auth$|lb:wk$|lb:mo$|lb:best$|uni$|year$)/;
 let ACC_DIRTY_HOOK = null;
 function lsSet(k,v){ try { window.localStorage.setItem(LSP + k, v); if (ACC_SYNC_RE.test(k)) { window.localStorage.setItem(LSP + '_st:' + k, String(Date.now())); if (ACC_DIRTY_HOOK) ACC_DIRTY_HOOK(); } return true; } catch (e) { return false; } }
 
@@ -2212,9 +2212,13 @@ function accMergeStats(a, b) {
     return JSON.stringify(out);
   } catch (e) { return a; }
 }
+function accMergeTombs(a, b) {
+  try { const x = JSON.parse(a || '{}'), y = JSON.parse(b || '{}'), o = Object.assign({}, x); Object.keys(y).forEach(k => { o[k] = Math.max(x[k] || 0, y[k] || 0); }); return JSON.stringify(o); } catch (e) { return a; }
+}
 function accMergeBlocks(a, b) {
   try {
-    const m = {}; JSON.parse(a).concat(JSON.parse(b)).forEach(x => { if (!m[x.id] || (x.updated || 0) > (m[x.id].updated || 0)) m[x.id] = x; });
+    const tomb = loadBlockTombs();
+    const m = {}; JSON.parse(a).concat(JSON.parse(b)).forEach(x => { if (tomb[x.id]) return; if (!m[x.id] || (x.updated || 0) > (m[x.id].updated || 0)) m[x.id] = x; });
     return JSON.stringify(Object.keys(m).map(k => m[k]));
   } catch (e) { return a; }
 }
@@ -2237,9 +2241,15 @@ function accMerge(remote) {
       nv = (r.t || 0) > lt ? r.v : lv;
     } else if (k.indexOf('priv:mystats:') === 0) nv = accMergeStats(lv, r.v);
     else if (k === 'blocks') nv = accMergeBlocks(lv, r.v);
+    else if (k === 'blocks:del') nv = accMergeTombs(lv, r.v);
     else nv = (r.t || 0) > lt ? r.v : lv;
     if (nv !== lv) { accRawSet(k, nv, Math.max(r.t || 0, lt)); changed = true; }
   }
+  // blocks deleted on either device must never come back
+  try {
+    const tomb = loadBlockTombs(), bl0 = JSON.parse(lsGet('blocks') || '[]'), k0 = bl0.filter(x => !tomb[x.id]);
+    if (k0.length !== bl0.length) { accRawSet('blocks', JSON.stringify(k0)); changed = true; }
+  } catch (e) {}
   // blocks finished on either device must not come back as "ongoing"
   try {
     const sk = Object.keys(localStorage).find(x => x.indexOf(LSP + 'priv:mystats:') === 0);
@@ -2849,7 +2859,8 @@ async function startQuiz() {
 function loadBlocks() { try { return JSON.parse(lsGet('blocks') || '[]'); } catch (e) { return []; } }
 function storeBlocks(a) { lsSet('blocks', JSON.stringify(a)); }
 function saveSession() {
-  if (!session || session.finished) return;
+  if (!session || session.finished || session.deleted) return;
+  if (loadBlockTombs()[session.id]) return;
   const rec = {
     id: session.id, kind: session.kind, title: session.title, subject: session.subject, systems: session.systems,
     qids: session.questions.map(q => q.id), idx: session.idx, answers: session.answers, submitted: session.submitted,
@@ -2860,7 +2871,15 @@ function saveSession() {
   if (i < 0) a.push(rec); else a[i] = rec;
   storeBlocks(a);
 }
-function removeBlock(id) { storeBlocks(loadBlocks().filter(x => x.id !== id)); }
+// a deleted block leaves a small "tombstone" so the copy held in the account's cloud sync (or on another device) can never bring it back
+function loadBlockTombs() { try { const o = JSON.parse(lsGet('blocks:del') || '{}'); return (o && typeof o === 'object') ? o : {}; } catch (e) { return {}; } }
+function removeBlock(id) {
+  const t = loadBlockTombs(), now = Date.now(); t[id] = now;
+  Object.keys(t).forEach(k => { if (now - t[k] > 120 * 86400000) delete t[k]; });
+  lsSet('blocks:del', JSON.stringify(t));
+  storeBlocks(loadBlocks().filter(x => x.id !== id));
+  if (session && session.id === id) { session.deleted = true; stopTimer(); }
+}
 function stopTimer() { if (session && session.timerId) { clearInterval(session.timerId); session.timerId = null; } }
 function startTimer() {
   stopTimer();
