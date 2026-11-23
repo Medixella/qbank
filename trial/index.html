@@ -1997,6 +1997,8 @@ const ACC_API = 'https://medixella-accounts.medixella.workers.dev/api/';
 const ACC_PUB = {"kty":"EC","x":"zq3qmbO1XB7SixZh3efTiF2nh7i-8PwUMBzvIa1ir8o","y":"7FiZJtraoa_Z0AgWQRR9BfYObkrWqqYqGL7ZD0lDI-k","crv":"P-256"};
 const FB_CFG = { apiKey: FB.key, authDomain: FB.pid + '.firebaseapp.com', projectId: FB.pid };
 let MXQ_ACCT = null, MXQ_ACCT_L = null, ACC_FB = null, ACC_REVOKED = false;
+// Proxy accounts (set by the admin, carried in the signed lease): they may change an answer any time before the block is finished.
+function mxIsProxy() { return !!(MXQ_ACCT && MXQ_ACCT.lease && MXQ_ACCT.lease.p); }
 function accLocalDay(ms) { const d = new Date(ms), p = n => String(n).padStart(2, '0'); return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()); }
 function accDeviceName() {
   const u = navigator.userAgent || '';
@@ -2060,7 +2062,7 @@ async function accGate() {
   if (lease && lease.d !== did) lease = null;
   const ended = lease && lease.x && lease.x < accLocalDay(nowMs);
   if (lease && lsGet('akey') && nowMs < lease.l && !ended) {
-    accRefresh().then(r => { if (r && r.state !== 'ok' && r.state !== 'login' && currentScreen !== 'quiz') { ACC_REVOKED = true; MXQ_ACCT = null; MXQ_ACCT_L = null; MXQ_DATA_READY = false; accQcWipe(); showAccount(Object.assign({ did }, r)); } });
+    accRefresh().then(async r => { if (r && r.state === 'ok' && MXQ_ACCT) { const L2 = await accVerifyLease(lsGet('alease')); if (L2) MXQ_ACCT.lease = L2; } if (r && r.state !== 'ok' && r.state !== 'login' && currentScreen !== 'quiz') { ACC_REVOKED = true; MXQ_ACCT = null; MXQ_ACCT_L = null; MXQ_DATA_READY = false; accQcWipe(); showAccount(Object.assign({ did }, r)); } });
     return { state: 'ok', lease, did };
   }
   const r = await accRefresh();
@@ -4035,7 +4037,7 @@ function quizHTML() {
     html += `<button class="nav-skip" id="skipBtn">Skip</button>`;
     html += `<button class="nav-submit" id="submitBtn" ${!picked?'disabled':''}>Submit answer</button>`;
   } else {
-    if (!immediate) html += `<button class="nav-skip" id="changeBtn">Change answer</button>`;
+    if (!immediate || mxIsProxy()) html += `<button class="nav-skip" id="changeBtn">Change answer</button>`;
     html += `<button class="nav-next" id="nextBtn">${session.idx < session.questions.length-1 ? 'Next question' : 'Finish block'}</button>`;
   }
   html += `</div>`;

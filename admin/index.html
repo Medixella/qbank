@@ -98,15 +98,17 @@ function status(a){if(a.blocked)return['Blocked','t-stop'];if(a.status==='stoppe
 function render(){
   const A=DATA.accounts,cnt=k=>A.filter(a=>status(a)[0]===k).length;
   let h='<div class="card"><div class="row"><b>Add or activate by email</b></div><div class="row" style="margin-top:8px"><input id="ne" type="email" placeholder="student@gmail.com" style="flex:1;min-width:200px"><input id="nd" type="date"><button id="na">Activate</button></div><div class="mut" style="margin-top:6px">Leave the date empty for no end date. If the student signs up later, they are active straight away.</div></div>';
-  h+='<div class="tabs">'+[['pending','Waiting ('+cnt('Waiting')+')'],['active','Active ('+cnt('Active')+')'],['all','All ('+A.length+')'],['flags','Warnings ('+DATA.flags.length+')'],['audit','Log']].map(t=>'<button data-t="'+t[0]+'" class="'+(TAB===t[0]?'on':'')+'">'+t[1]+'</button>').join('')+'</div>';
+  h+='<div class="tabs">'+[['pending','Waiting ('+cnt('Waiting')+')'],['active','Active ('+cnt('Active')+')'],['all','All ('+A.length+')'],['proxy','Proxy ('+A.filter(x=>x.proxy).length+')'],['flags','Warnings ('+DATA.flags.length+')'],['audit','Log']].map(t=>'<button data-t="'+t[0]+'" class="'+(TAB===t[0]?'on':'')+'">'+t[1]+'</button>').join('')+'</div>';
   if(TAB==='flags'){h+='<div class="card">'+(DATA.flags.length?'<table><tr><th>When</th><th>Account</th><th>What</th></tr>'+DATA.flags.map(f=>'<tr><td>'+ago(f.ts)+'</td><td>'+esc(f.email)+'</td><td>'+esc(f.kind)+': '+esc(f.detail)+'</td></tr>').join('')+'</table>':'<p class="mut">No warnings.</p>')+'</div>'}
   else if(TAB==='audit'){h+='<div class="card" id="aud"><p class="mut">Loading…</p></div>'}
   else{
+    if(TAB==='proxy')h+='<div class="card"><div class="row"><b>Proxy accounts</b></div><div class="mut" style="margin:4px 0 8px">A proxy account works like every other account, but the student can change an answer any time before finishing the block. Answers are final once the block is finished.</div><div class="row"><input id="pe" type="email" placeholder="email@gmail.com" style="flex:1;min-width:200px"><button id="pa">Add to Proxy</button></div></div>';
     h+='<div class="card"><input id="q" placeholder="Search by email or note" value="'+esc(Q)+'" style="width:100%">';
-    const L=A.filter(a=>(TAB==='all'||(TAB==='pending'?status(a)[0]==='Waiting':status(a)[0]==='Active'))&&(!Q||(a.email+' '+(a.note||'')).toLowerCase().includes(Q.toLowerCase())));
+    const L=A.filter(a=>(TAB==='all'||TAB==='proxy'&&a.proxy||(TAB==='pending'?status(a)[0]==='Waiting':TAB==='active'?status(a)[0]==='Active':false))&&(!Q||(a.email+' '+(a.note||'')).toLowerCase().includes(Q.toLowerCase())));
     h+=L.length?L.map(card).join(''):'<p class="mut" style="margin-top:10px">Nobody here.</p>';h+='</div>';
   }
   $('#m').innerHTML=h;
+  if($('#pa'))$('#pa').onclick=()=>act('proxy',{email:$('#pe').value.trim(),on:true},'Added to Proxy');
   $('#na').onclick=()=>act('activate',{email:$('#ne').value.trim(),exp:$('#nd').value||null},'Activated');
   document.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>{TAB=b.dataset.t;render()});
   const q=$('#q');if(q)q.oninput=()=>{Q=q.value;const p=q.selectionStart;render();const n=$('#q');n.focus();n.setSelectionRange(p,p)};
@@ -114,7 +116,7 @@ function render(){
   if(TAB==='audit')call('audit').then(r=>{$('#aud').innerHTML='<table><tr><th>When</th><th>Action</th><th>Account</th><th>Detail</th></tr>'+r.rows.map(x=>'<tr><td>'+ago(x.ts)+'</td><td>'+esc(x.action)+'</td><td>'+esc(x.target)+'</td><td>'+esc(x.detail)+'</td></tr>').join('')+'</table>'}).catch(e=>toast(e.message));
 }
 function card(a){const s=status(a),u=a.usage;
-  return '<div class="acc"><div><span class="em">'+esc(a.email)+'</span><span class="tag '+s[1]+'">'+s[0]+'</span></div>'+
+  return '<div class="acc"><div><span class="em">'+esc(a.email)+'</span><span class="tag '+s[1]+'">'+s[0]+'</span>'+(a.proxy?'<span class="tag t-ok" style="background:#6d4aff;color:#fff">Proxy</span>':'')+'</div>'+
   '<div class="mut">'+(a.status==='active'?'Ends: '+dstr(a.exp_day):'Signed up '+ago(a.created))+' · last seen '+ago(a.last_seen)+(u?' · today: '+u.keys+' key fetches':'')+(a.note?' · '+esc(a.note):'')+'</div>'+
   a.devices.map(d=>'<div class="dev">📱 '+esc(d.name)+' · last used '+ago(d.last)+'<button class="g" data-a="rmdev" data-e="'+esc(a.email)+'" data-d="'+esc(d.id)+'">Remove</button></div>').join('')+
   '<div class="row" style="margin-top:8px"><input type="date" data-date="'+esc(a.email)+'" value="'+esc(a.exp_day||'')+'">'+
@@ -123,6 +125,7 @@ function card(a){const s=status(a),u=a.usage;
   '<button class="a" data-a="stop" data-e="'+esc(a.email)+'">Stop</button>'+
   '<button class="g" data-a="swap" data-e="'+esc(a.email)+'">Reset swap wait</button>'+
   '<button class="'+(a.blocked?'g':'r')+'" data-a="block" data-e="'+esc(a.email)+'" data-on="'+(a.blocked?0:1)+'">'+(a.blocked?'Unblock':'Block')+'</button>'+
+  '<button class="'+(a.proxy?'a':'g')+'" data-a="proxy" data-e="'+esc(a.email)+'" data-on="'+(a.proxy?0:1)+'">'+(a.proxy?'Remove proxy':'Make proxy')+'</button>'+
   '<button class="g" data-a="note" data-e="'+esc(a.email)+'">Note</button>'+
   '<button class="r" data-a="del" data-e="'+esc(a.email)+'">Delete</button></div></div>'}
 async function act(p,b,ok){try{await call(p,b);toast(ok||'Done');await load()}catch(e){toast(e.message)}}
@@ -131,6 +134,7 @@ function handle(b){const e=b.dataset.e,k=b.dataset.a;
   if(k==='plus'){const a=DATA.accounts.find(x=>x.email===e);let base=(a.exp_day&&a.exp_day>=DATA.today)?a.exp_day:DATA.today;const t=new Date(base+'T00:00:00Z');t.setUTCDate(t.getUTCDate()+30);return act('activate',{email:e,exp:t.toISOString().slice(0,10)},'Extended to '+dstr(t.toISOString().slice(0,10)))}
   if(k==='stop'){if(confirm('Stop '+e+'? They are locked out on their next open.'))act('stop',{email:e},'Stopped')}
   if(k==='block')return act('block',{email:e,on:b.dataset.on==='1'},'Done');
+  if(k==='proxy')return act('proxy',{email:e,on:b.dataset.on==='1'},b.dataset.on==='1'?'Now a proxy':'Proxy removed');
   if(k==='swap')return act('resetswap',{email:e},'Swap wait reset');
   if(k==='rmdev'){if(confirm('Remove this device from '+e+'?'))act('removedevice',{email:e,deviceId:b.dataset.d},'Device removed')}
   if(k==='note'){const n=prompt('Note for '+e,(DATA.accounts.find(x=>x.email===e)||{}).note||'');if(n!==null)act('note',{email:e,note:n},'Saved')}
