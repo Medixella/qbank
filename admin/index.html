@@ -125,7 +125,7 @@ function card(a){const s=status(a),u=a.usage;
   '<button class="a" data-a="stop" data-e="'+esc(a.email)+'">Stop</button>'+
   '<button class="g" data-a="swap" data-e="'+esc(a.email)+'">Reset swap wait</button>'+
   '<button class="'+(a.blocked?'g':'r')+'" data-a="block" data-e="'+esc(a.email)+'" data-on="'+(a.blocked?0:1)+'">'+(a.blocked?'Unblock':'Block')+'</button>'+
-  '<button class="'+(a.proxy?'a':'g')+'" data-a="proxy" data-e="'+esc(a.email)+'" data-on="'+(a.proxy?0:1)+'">'+(a.proxy?'Remove proxy':'Make proxy')+'</button>'+
+  (TAB==='proxy'&&a.proxy?'<button class="a" data-a="proxy" data-e="'+esc(a.email)+'" data-on="0">Remove from Proxy</button>':'')+
   '<button class="g" data-a="note" data-e="'+esc(a.email)+'">Note</button>'+
   '<button class="r" data-a="del" data-e="'+esc(a.email)+'">Delete</button></div></div>'}
 async function act(p,b,ok){try{await call(p,b);toast(ok||'Done');await load()}catch(e){toast(e.message)}}
