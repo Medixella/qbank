@@ -145,21 +145,24 @@ button{font-family:inherit;}
 .flag-btn.flagged{background:var(--gold-light);border-color:var(--gold);color:var(--gold);font-weight:700;}
 .mastery-banner{background:var(--teal-light);color:var(--teal);border-radius:var(--radius-sm);padding:12px 14px;font-size:13px;line-height:1.5;margin-bottom:14px;font-weight:600;}
 
-.explain-box{margin-top:16px;border-top:1px dashed var(--line);padding-top:16px;}
-.explain-verdict{display:flex;align-items:center;gap:8px;font-size:14.5px;font-weight:700;margin-bottom:12px;}
+.explain-box{font-size:16.5px;margin-top:16px;border-top:1px dashed var(--line);padding-top:16px;}
+.explain-verdict{display:flex;align-items:center;gap:8px;font-size:1em;font-weight:700;margin-bottom:12px;}
 .explain-verdict.ok{color:var(--teal);}
 .explain-verdict.no{color:var(--danger);}
 .explain-sec{margin-bottom:14px;}
-.explain-sec h4{font-size:11.5px;text-transform:uppercase;letter-spacing:.5px;color:var(--ink-soft);margin:0 0 6px;font-weight:700;}
-.explain-sec p{font-size:14px;line-height:1.6;margin:0;color:var(--ink);}
-.wrong-item{font-size:13.5px;line-height:1.55;margin:0 0 8px;padding-left:14px;border-left:2px solid var(--line);}
+.explain-sec h4{font-size:12px;text-transform:uppercase;letter-spacing:.5px;color:var(--ink-soft);margin:0 0 6px;font-weight:700;}
+.explain-sec p{font-size:1em;line-height:1.65;margin:0;color:var(--ink);}
+.wrong-item{font-size:.97em;line-height:1.6;margin:0 0 8px;padding-left:14px;border-left:2px solid var(--line);}
 .wrong-item b{color:var(--ink);}
 .explain-sec.ex-good,.explain-sec.ex-bad{border-radius:12px;padding:12px 14px;border-left:5px solid}
 .explain-sec.ex-good h4,.explain-sec.ex-bad h4{margin-top:0}
 .explain-sec.ex-good{background:#e3f6e8;border-left-color:#3fae62}.explain-sec.ex-good h4{color:#1f7a3d}
 .explain-sec.ex-bad{background:#fdeaea;border-left-color:#e0605c}.explain-sec.ex-bad h4{color:#b3302c}
 .ex-bad .wrong-item{border-left:0;padding-left:0;margin:0 0 8px}.ex-bad .wrong-item:last-child{margin-bottom:0}
-.pearl-box{background:var(--gold-light);border-radius:var(--radius-sm);padding:12px 14px;font-size:13.5px;line-height:1.55;color:#5c3d0c;}
+.pearl-box{background:var(--gold-light);border-radius:var(--radius-sm);padding:12px 14px;font-size:.97em;line-height:1.6;color:#5c3d0c;}
+.explain-box b.xk{font-weight:800;color:#0b3d36}.explain-box i.xi{font-style:italic}
+.pearl-box b.xk{color:#3d2606}
+html[data-theme=dark] .explain-box b.xk{color:#fff}html[data-theme=dark] .pearl-box b.xk{color:#fff}
 .qyr{white-space:nowrap;font-weight:700;color:var(--teal);}
 .source-line{font-size:11.5px;color:var(--ink-soft);margin-top:12px;font-style:italic;}
 
@@ -493,9 +496,9 @@ html[data-theme=dark] .qs-seg button.on{background:#5eead4;border-color:#5eead4;
 .hl-wrap{max-height:0;opacity:0;overflow:hidden;transition:max-height .35s ease,opacity .3s ease}
 .hl-wrap.open{max-height:130px;opacity:1}
 .hl-wrap .hl-strip{margin-bottom:12px}
-html[data-qfs=M] .qstem{font-size:18.5px}html[data-qfs=M] .qopt .otext{font-size:16.2px}html[data-qfs=M] .explain-box,html[data-qfs=M] .explain-box p,html[data-qfs=M] .explain-box li{font-size:15.5px}
-html[data-qfs=L] .qstem{font-size:20.5px}html[data-qfs=L] .qopt .otext{font-size:18px}html[data-qfs=L] .explain-box,html[data-qfs=L] .explain-box p,html[data-qfs=L] .explain-box li{font-size:17px}
-html[data-qfs=XL] .qstem{font-size:23px}html[data-qfs=XL] .qopt .otext{font-size:20.5px}html[data-qfs=XL] .explain-box,html[data-qfs=XL] .explain-box p,html[data-qfs=XL] .explain-box li{font-size:19px}
+html[data-qfs=M] .qstem{font-size:18.5px}html[data-qfs=M] .qopt .otext{font-size:16.2px}html[data-qfs=M] .explain-box,html[data-qfs=M] .explain-box p,html[data-qfs=M] .explain-box li{font-size:17.8px}
+html[data-qfs=L] .qstem{font-size:20.5px}html[data-qfs=L] .qopt .otext{font-size:18px}html[data-qfs=L] .explain-box,html[data-qfs=L] .explain-box p,html[data-qfs=L] .explain-box li{font-size:19.5px}
+html[data-qfs=XL] .qstem{font-size:23px}html[data-qfs=XL] .qopt .otext{font-size:20.5px}html[data-qfs=XL] .explain-box,html[data-qfs=XL] .explain-box p,html[data-qfs=XL] .explain-box li{font-size:22px}
 html[data-qbold="1"] .qstem,html[data-qbold="1"] .qopt .otext,html[data-qbold="1"] .explain-box p,html[data-qbold="1"] .explain-box li{font-weight:700}
 .hl-strip{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 12px;padding:8px 10px;background:var(--card);border:1px solid var(--line);border-radius:12px}
 .hl-lbl{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--ink-soft)}
@@ -2447,7 +2450,7 @@ function accFailScreen(res, soft) {
   const app = document.getElementById('app'); if (!app) return;
   const back = `<button class="lock-btn ghost" id="accQBack">Back to home</button>`;
   let t = 'Could not load these questions', m = 'Check your internet connection, then try again. Questions you have already opened keep working offline.', retry = true;
-  if (res.reason === 'limit') { t = 'Daily limit reached'; m = `You have opened ${res.limit || 500} new questions today, which is the daily limit. It resets at midnight (Pakistan time). Questions you already opened still work, even offline.`; retry = false; }
+  if (res.reason === 'limit') { t = 'Daily limit reached'; m = `You have opened ${res.limit || 750} new questions today, which is the daily limit. It resets at midnight (Pakistan time). Questions you already opened still work, even offline.`; retry = false; }
   app.innerHTML = `<div class="lock-screen"><div class="logo-wrap" style="margin-top:6px"><div class="logo-card"><img src="${LOGO_URI}" alt="Medixella"></div></div><h2>${t}</h2><p class="lock-sub">${m}</p>${retry ? '<button class="lock-btn" id="accQRetry">Try again</button>' : ''}${back}</div>`;
   const b = document.getElementById('accQBack'); if (b) b.addEventListener('click', () => { if (session && !session.finished) { try { saveSession(); } catch (e) {} } goHome(); });
   const r = document.getElementById('accQRetry'); if (r) r.addEventListener('click', () => render());
@@ -4029,17 +4032,17 @@ function quizHTML() {
     html += `<div class="explain-box">`;
     { const _t = qChips(q).topic; if (_t && !/^other\s*\/\s*mixed$/i.test(_t)) html += `<div class="explain-sec" style="margin-top:0"><h4>Topic</h4><p>${escapeHtml(_t)}</p></div>`; }
     html += `<div class="explain-verdict ${correct?'ok':'no'}">${correct ? '&#10003; Correct' : '&#10007; Incorrect'} — Answer: ${mxShown(q, q.correct_letter)}. ${escapeHtml(q.options[q.correct_letter])}</div>`;
-    html += `<div class="explain-sec ex-good"><h4>Why this is correct</h4><p>${escapeHtml(q.why_correct)}</p></div>`;
+    html += `<div class="explain-sec ex-good"><h4>Why this is correct</h4><p>${mxRich(q.why_correct)}</p></div>`;
     if (q.why_wrong && Object.keys(q.why_wrong).length) {
       html += `<div class="explain-sec ex-bad"><h4>Why the others are wrong</h4>`;
       const _wo = mxOrder(q), _wk = Object.keys(q.why_wrong).sort((a, b) => _wo.indexOf(a) - _wo.indexOf(b));
       for (const letter of _wk) { const txt = q.why_wrong[letter];
-        html += `<p class="wrong-item"><b>${mxShown(q, letter)}.</b> ${escapeHtml(txt)}</p>`;
+        html += `<p class="wrong-item"><b>${mxShown(q, letter)}.</b> ${mxRich(txt)}</p>`;
       }
       html += `</div>`;
     }
     if (q.take_home) {
-      html += `<div class="explain-sec"><h4>Take-home pearl</h4><div class="pearl-box">${escapeHtml(q.take_home)}</div></div>`;
+      html += `<div class="explain-sec"><h4>Take-home pearl</h4><div class="pearl-box">${mxRich(q.take_home)}</div></div>`;
     }
     if (q.source) html += `<div class="source-line">${escapeHtml(mxNoUni(q.source))}</div>`;
     html += `</div>`;
@@ -4335,6 +4338,34 @@ function attachStatsEvents() {
   });
 }
 
+
+// Safe rich text for explanations: escape first, then bold definitions / key points / numbers and italicise organisms and quoted terms.
+const MX_RICH_RE = new RegExp([
+  // 1 definitions / key-point phrases (bold) with up to 4 following words
+  '\\b(?:defined as|defined by|characteri[sz]ed by|pathognomonic(?: (?:for|of|sign))?|hallmark(?: (?:of|is))?|gold standard|(?:drug|treatment|investigation|test|procedure|management) of choice|first[- ]line|best initial (?:test|step)|most common(?:ly)?|commonest|most important|most sensitive|most specific|diagnostic of|classic(?:al)? triad|triad of|tetrad of|pentad of|diagnosis is|treatment is|investigation of choice)\\b(?:\\s[^\\s,.;:()&<]+){0,4}',
+  // 2 numbers with optional comparator, range and unit (bold)
+  '(?<![\\w#&.\\-])(?:&lt;=?|&gt;=?|\\u2264|\\u2265|~)?\\s?\\d+(?:[.,]\\d+)?(?:\\s?[-\\u2013]\\s?\\d+(?:[.,]\\d+)?)?(?:\\s?(?:%|mg\\/dl|mg\\/kg|mmol\\/l|meq\\/l|mcg|\\u00b5g|mg|g\\/dl|g\\/l|kg|ml|mmhg|cmh2o|cm|mm|kpa|hours?|hrs?|minutes?|mins?|days?|weeks?|months?|years?|yrs?|bpm|iu|fold|times|cells\\/(?:\\u00b5|u)l|\\/min|g|h)(?![A-Za-z]))?',
+  // 3 organisms (italic)
+  '\\b(?:(?:Staphylococcus|Streptococcus|Escherichia|Klebsiella|Pseudomonas|Mycobacterium|Salmonella|Shigella|Helicobacter|Plasmodium|Candida|Clostridium|Clostridioides|Neisseria|Haemophilus|Vibrio|Treponema|Borrelia|Leptospira|Entamoeba|Giardia|Trichomonas|Chlamydia|Bacillus|Listeria|Legionella|Aspergillus|Cryptococcus|Pneumocystis|Toxoplasma|Schistosoma|Ascaris|Taenia|Brucella|Rickettsia|Corynebacterium|Enterococcus|Proteus|Campylobacter|Bordetella|Yersinia|Cryptosporidium|Leishmania|Trypanosoma|Wuchereria|Strongyloides|Echinococcus)\\s[a-z]{3,}|[EHSCKPM]\\.\\s(?:coli|pylori|aureus|difficile|pneumoniae|pyogenes|typhi|tuberculosis|falciparum|vivax|albicans|jejuni|histolytica|lamblia|vaginalis|trachomatis|gonorrhoeae|influenzae|epidermidis|mirabilis|monocytogenes|abscessus|leprae|ovale|malariae))\\b',
+  // 4 quoted terms (italic)
+  '&quot;[^&<]{2,60}&quot;'
+].join('|'), 'gi');
+function mxRich(str) {
+  const s = escapeHtml(str);
+  if (!s) return '';
+  return s.replace(MX_RICH_RE, (m, off) => {
+    if (m.startsWith('&quot;')) return '<i class="xi">' + m + '</i>';
+    if (/^(?:[EHSCKPM]\.\s|Staphylococcus|Streptococcus|Escherichia|Klebsiella|Pseudomonas|Mycobacterium|Salmonella|Shigella|Helicobacter|Plasmodium|Candida|Clostridium|Clostridioides|Neisseria|Haemophilus|Vibrio|Treponema|Borrelia|Leptospira|Entamoeba|Giardia|Trichomonas|Chlamydia|Bacillus|Listeria|Legionella|Aspergillus|Cryptococcus|Pneumocystis|Toxoplasma|Schistosoma|Ascaris|Taenia|Brucella|Rickettsia|Corynebacterium|Enterococcus|Proteus|Campylobacter|Bordetella|Yersinia|Cryptosporidium|Leishmania|Trypanosoma|Wuchereria|Strongyloides|Echinococcus)/i.test(m)) return '<i class="xi">' + m + '</i>';
+    if (/^[\s~&lgt;=≤≥]*\d/.test(m) && /^\W*\d/.test(m.replace(/^(&lt;|&gt;)=?/, '')) ) {
+      // plain number: only bold if it carries a unit, a range, a decimal, a comparator or 2+ digits
+      const core = m.replace(/^(&lt;|&gt;)=?|^[≤≥~]/, '').trim();
+      if (/^\d$/.test(core) && m === core) return m;
+      return '<b class="xk">' + m + '</b>';
+    }
+    return '<b class="xk">' + m + '</b>';
+  });
+}
+
 function escapeHtml(str) {
   if (str === undefined || str === null) return '';
   return String(str).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
@@ -4530,6 +4561,7 @@ const NEWS = [
   { id: 'n36', kind: 'study', date: '18 Nov 2026', title: 'Sticky notes on questions', body: 'Tap the note button at the top of any question to open a sticky note and type your own note; tap it again to hide it. It saves by itself and syncs to your other device. A small dot on the button shows which questions already have a note.' },
   { id: 'n37', kind: 'content', date: '19 Nov 2026', title: 'Paediatrics rapid revision sheets', body: 'The Sources deck is now Rapid Revision Sheets. It has a new Paediatrics sub-deck with 12 one-page sheet PDFs covering every Paediatrics system (Respiratory and CVS, Neonatology, Infectious, Haematology, Nutrition, Neurology, Emergencies, GI and Liver, Endocrine, Nephrology, Immunization and more), each built from LUMHS past papers with a final-hour facts page.' },
   { id: 'n38', kind: 'content', date: '20 Nov 2026', title: 'Medicine-I 10 Jan paper checked', body: 'The LUMHS Medicine-I 10 January recall paper has been checked against the Medicine bank. Almost every question in it was already in the app, and the 4 that were missing (pleural exudate test, peptic ulcer pain, cirrhosis with ascites and Fanconi syndrome) have been added with Davidson references.' },
+  { id: 'n40', kind: 'study', date: '25 Nov 2026', title: 'Daily limit is now 750 questions + easier-to-read explanations', body: 'The daily limit is now 750 new questions for every student. Explanations have a bigger font, and definitions, key points, numbers and values are in bold, with organism names in italics, so you can scan them faster. You can still change the text size from the settings button in the quiz.' },
   { id: 'n39', kind: 'content', date: '24 Nov 2026', title: 'Third Year Pathology: 323 new questions', body: 'Third Year Pathology now has 1,439 questions (323 new). It is arranged by your LUMHS module and book chapter: Robbins general pathology in Foundation, then Haematology, Respiratory, CVS, GIT, Endocrine, Renal, Reproductive, Bone and Neuroscience. Inside each chapter the questions are split by topic (for example the Lung: Obstructive diseases, Lung tumors, Pneumonia, TB), so you can practise only the topic you studied. Every question shows its past paper address and the book pages.' },
 ];
 function newsSeen() { try { return JSON.parse(lsGet('newsSeen') || 'null'); } catch (e) { return null; } }
