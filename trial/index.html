@@ -4059,17 +4059,17 @@ function quizHTML() {
     html += `<div class="explain-box">`;
     { const _t = qChips(q).topic; if (_t && !/^other\s*\/\s*mixed$/i.test(_t)) html += `<div class="explain-sec" style="margin-top:0"><h4>Topic</h4><p>${escapeHtml(_t)}</p></div>`; }
     html += `<div class="explain-verdict ${correct?'ok':'no'}">${correct ? '&#10003; Correct' : '&#10007; Incorrect'} — Answer: ${mxShown(q, q.correct_letter)}. ${escapeHtml(q.options[q.correct_letter])}</div>`;
-    html += `<div class="explain-sec ex-good"><h4>Why this is correct</h4><p>${mxRich(q.why_correct)}</p></div>`;
+    html += `<div class="explain-sec ex-good"><h4>Why this is correct</h4><p>${mxRich(q.why_correct, q.options[q.correct_letter])}</p></div>`;
     if (q.why_wrong && Object.keys(q.why_wrong).length) {
       html += `<div class="explain-sec ex-bad"><h4>Why the others are wrong</h4>`;
       const _wo = mxOrder(q), _wk = Object.keys(q.why_wrong).sort((a, b) => _wo.indexOf(a) - _wo.indexOf(b));
       for (const letter of _wk) { const txt = q.why_wrong[letter];
-        html += `<p class="wrong-item"><b>${mxShown(q, letter)}.</b> ${mxRich(txt)}</p>`;
+        html += `<p class="wrong-item"><b>${mxShown(q, letter)}.</b> ${mxRich(txt, '', q.options[letter])}</p>`;
       }
       html += `</div>`;
     }
     if (q.take_home) {
-      html += `<div class="explain-sec"><h4>Take-home pearl</h4><div class="pearl-box">${mxRich(q.take_home)}</div></div>`;
+      html += `<div class="explain-sec"><h4>Take-home pearl</h4><div class="pearl-box">${mxRich(q.take_home, q.options[q.correct_letter])}</div></div>`;
     }
     if (q.source) html += `<div class="source-line">${escapeHtml(mxNoUni(q.source))}</div>`;
     html += `</div>`;
@@ -4366,28 +4366,69 @@ function attachStatsEvents() {
 }
 
 
-// Safe rich text for explanations: escape first, then bold definitions / key points / numbers and italicise organisms and quoted terms.
-const MX_RICH_RE = new RegExp([
-  // 1 definitions / key-point phrases (bold) with up to 4 following words
-  '\\b(?:defined as|defined by|characteri[sz]ed by|pathognomonic(?: (?:for|of|sign))?|hallmark(?: (?:of|is))?|gold standard|(?:drug|treatment|investigation|test|procedure|management) of choice|first[- ]line|best initial (?:test|step)|most common(?:ly)?|commonest|most important|most sensitive|most specific|diagnostic of|classic(?:al)? triad|triad of|tetrad of|pentad of|diagnosis is|treatment is|investigation of choice)\\b(?:\\s[^\\s,.;:()&<]+){0,4}',
-  // 2 numbers with optional comparator, range and unit (bold)
-  '(?<![\\w#&.\\-])(?:&lt;=?|&gt;=?|\\u2264|\\u2265|~)?\\s?\\d+(?:[.,]\\d+)?(?:\\s?[-\\u2013]\\s?\\d+(?:[.,]\\d+)?)?(?:\\s?(?:%|mg\\/dl|mg\\/kg|mmol\\/l|meq\\/l|mcg|\\u00b5g|mg|g\\/dl|g\\/l|kg|ml|mmhg|cmh2o|cm|mm|kpa|hours?|hrs?|minutes?|mins?|days?|weeks?|months?|years?|yrs?|bpm|iu|fold|times|cells\\/(?:\\u00b5|u)l|\\/min|g|h)(?![A-Za-z]))?',
-  // 3 organisms (italic)
-  '\\b(?:(?:Staphylococcus|Streptococcus|Escherichia|Klebsiella|Pseudomonas|Mycobacterium|Salmonella|Shigella|Helicobacter|Plasmodium|Candida|Clostridium|Clostridioides|Neisseria|Haemophilus|Vibrio|Treponema|Borrelia|Leptospira|Entamoeba|Giardia|Trichomonas|Chlamydia|Bacillus|Listeria|Legionella|Aspergillus|Cryptococcus|Pneumocystis|Toxoplasma|Schistosoma|Ascaris|Taenia|Brucella|Rickettsia|Corynebacterium|Enterococcus|Proteus|Campylobacter|Bordetella|Yersinia|Cryptosporidium|Leishmania|Trypanosoma|Wuchereria|Strongyloides|Echinococcus)\\s[a-z]{3,}|[EHSCKPM]\\.\\s(?:coli|pylori|aureus|difficile|pneumoniae|pyogenes|typhi|tuberculosis|falciparum|vivax|albicans|jejuni|histolytica|lamblia|vaginalis|trachomatis|gonorrhoeae|influenzae|epidermidis|mirabilis|monocytogenes|abscessus|leprae|ovale|malariae))\\b',
-  // 4 quoted terms (italic)
-  '&quot;[^&<]{2,60}&quot;'
-].join('|'), 'gi');
-function mxRich(str) {
+// Safe rich text for explanations: escape first, then in one pass bold the important terms (key definitions, the answer itself, drug names,
+// disease names, hormones, numbers with units) and italicise organisms, enzymes, named signs/tests/reflexes and quoted terms.
+const MX_ORG = '(?:Staphylococcus|Streptococcus|Escherichia|Klebsiella|Pseudomonas|Mycobacterium|Salmonella|Shigella|Helicobacter|Plasmodium|Candida|Clostridium|Clostridioides|Neisseria|Haemophilus|Vibrio|Treponema|Borrelia|Leptospira|Entamoeba|Giardia|Trichomonas|Chlamydia|Bacillus|Listeria|Legionella|Aspergillus|Cryptococcus|Pneumocystis|Toxoplasma|Schistosoma|Ascaris|Taenia|Brucella|Rickettsia|Corynebacterium|Enterococcus|Proteus|Campylobacter|Bordetella|Yersinia|Cryptosporidium|Leishmania|Trypanosoma|Wuchereria|Strongyloides|Echinococcus)';
+const MX_PIECES = [
+  ['bold', '\\b(?:defined as|defined by|characteri[sz]ed by|pathognomonic(?: (?:for|of|sign))?|hallmark(?: (?:of|is))?|gold standard|(?:drug|treatment|investigation|test|procedure|management) of choice|first[- ]line|best initial (?:test|step)|most common(?:ly)?|commonest|most important|most sensitive|most specific|diagnostic of|classic(?:al)? triad|triad of|tetrad of|pentad of|diagnosis is|treatment is|investigation of choice)\\b(?:\\s[^\\s,.;:()&<]+){0,4}'],
+  ['num', '(?<![\\w#&.\\-])(?:&lt;=?|&gt;=?|\\u2264|\\u2265|~)?\\s?\\d+(?:[.,]\\d+)?(?:\\s?[-\\u2013]\\s?\\d+(?:[.,]\\d+)?)?(?:\\s?(?:%|mg\\/dl|mg\\/kg|mmol\\/l|meq\\/l|mcg|\\u00b5g|mg|g\\/dl|g\\/l|kg|ml|mmhg|cmh2o|cm|mm|kpa|hours?|hrs?|minutes?|mins?|days?|weeks?|months?|years?|yrs?|bpm|iu|fold|times|cells\\/(?:\\u00b5|u)l|\\/min|g|h)(?![A-Za-z]))?'],
+  ['ital', '\\b(?:' + MX_ORG + '\\s[a-z]{3,}|[EHSCKPM]\\.\\s(?:coli|pylori|aureus|difficile|pneumoniae|pyogenes|typhi|tuberculosis|falciparum|vivax|albicans|jejuni|histolytica|lamblia|vaginalis|trachomatis|gonorrhoeae|influenzae|epidermidis|mirabilis|monocytogenes|abscessus|leprae|ovale|malariae))\\b'],
+  ['ital', '&quot;[^&<]{2,60}&quot;'],
+  // named signs, tests, reflexes, laws (italic): Chvostek's sign, Romberg test, Babinski sign ...
+  ['ital_cs', '\\b(?!(?:The|This|That|These|Those|Any|Each|Both|Such|Another|Its|Their|No|Not|It|In|Of|On|To|If|Or|And|But|For|With|Only|Same|First|Second|Third|Early|Late|Positive|Negative|Normal|Clinical|Cardiac|Abnormal|Absent|Present|Loss|Some|All|One|Two|Which|When|Where|What|How|Why)\\b)[A-Z][A-Za-z\\-]+(?:&#39;s|s&#39;)?\\s(?:sign|test|reflex|law|phenomenon|triad|rule|manoeuvre|maneuver|effect|cycle|point)\\b'],
+  // named diseases and syndromes (bold): Cushing's syndrome, Down syndrome, Hirschsprung disease
+  ['bold_cs', '\\b[A-Z][A-Za-z\\-]+(?:&#39;s|s&#39;)\\s(?:[a-z]+\\s)?(?:disease|syndrome|lymphoma|anaemia|anemia|palsy|paralysis)\\b'],
+  ['bold_cs', '(?<=[a-z,;(] )(?!(?:The|This|That|These|Those|Any|Each|Both|Such|Another|Its|Their|No|Not|It|In|Of|On|To|If|Or|And|But|For|With|Only|Same|First|Second|Third|Early|Late|Positive|Negative|Normal|Clinical|Cardiac|Abnormal|Absent|Present|Loss|Some|All|One|Two|Which|When|Where|What|How|Why)\\b)[A-Z][a-z]+\\s(?:disease|syndrome)\\b'],
+  // disease and condition words
+  ['bold', '\\b(?!(?:diagnosis|prognosis|mitosis|meiosis|apoptosis|osmosis|anastomosis|symbiosis|metamorphosis|hypnosis|kinesis|synthesis|analysis|glycolysis|hydrolysis|lipolysis|proteolysis|electrolysis|dialysis|catalysis|paralysis)\\b)[a-z]{3,}(?:itis|osis|aemia|emia|uria|pathy|plegia|paresis|malacia|megaly|penia|cytosis|plasia|trophy|algia|ectasis|stenosis|sclerosis)\\b'],
+  ['bold', '\\b(?:hyper|hypo)[a-z]*(?:ism|aemia|emia|tension|plasia|trophy|glycaemia|glycemia|natraemia|kalaemia|calcaemia|reflexia|thermia|volaemia|volemia|ventilation|tonia|esthesia|algesia)\\b'],
+  ['bold', '\\b(?:[a-z]+ )?(?:carcinoma|lymphoma|adenoma|glioma|blastoma|sarcoma|melanoma|meningioma|schwannoma|myeloma|hepatoma|papilloma|teratoma|neuroma|glaucoma|trachoma|haematoma|hematoma)\\b'],
+  ['bold', '\\b(?:diabetes (?:mellitus|insipidus)|myocardial infarction|heart failure|peptic ulcer|duodenal ulcer|gastric ulcer|inguinal hernia|cleft (?:lip|palate)|spina bifida|malaria|cholera|typhoid|leprosy|asthma|epilepsy|migraine|gout|angina|stroke|pneumonia|jaundice|sepsis|rickets|scurvy|beriberi|pellagra|kwashiorkor|marasmus|xerophthalmia|night blindness|goit(?:re|er)|cretinism|acromegaly|gigantism|dwarfism|thyrotoxicosis|steatorrh(?:o)?ea|achalasia|volvulus|intussusception|hydrocephalus|anencephaly|meningocele|myelomeningocele|coloboma|cataract|presbyopia|myopia|hypermetropia|astigmatism|strabismus|ptosis|diplopia|nystagmus|ataxia|aphasia|dysarthria|dysphagia|hemiplegia|paraplegia|tetany|tetanus|haemophilia|hemophilia|thalassaemia|thalassemia|cirrhosis|shock|atresia|aganglionosis|megacolon|cholestasis|ascites|oedema|edema|hypertension|hypotension)\\b'],
+  // drug names (bold)
+  ['bold', '\\b[a-z]{3,}(?:olol|pril|sartan|statin|azole|mycin|micin|cillin|cycline|floxacin|prazole|tidine|dipine|thiazide|semide|setron|triptan|mab|tinib|zepam|zolam|caine|formin|glitazone|gliptin|gliflozin|parin|xaban|oxetine|triptyline|lukast|platin|rubicin|trexate|fibrate|dronate|steride|azosin|thyroxine|olone|sone|buterol|meterol|moterol|barbital|curonium|tropium|vudine|navir|tegravir|buvir|ciclovir|cyclovir|epoxide|zepine|apine|peridol|azine|phylline|pamil|quine|tadine|lamide|penem|bactam)\\b'],
+  ['bold', '\\bcef[a-z]{3,}\\b'],
+  ['bold', '\\b[a-z]{4,}vir\\b'],
+  ['bold', '\\b(?:insulin|glucagon|heparin|warfarin|aspirin|paracetamol|acetaminophen|morphine|codeine|tramadol|pethidine|fentanyl|atropine|adrenaline|epinephrine|noradrenaline|norepinephrine|dopamine|digoxin|amiodarone|spironolactone|rifampicin|rifampin|isoniazid|pyrazinamide|ethambutol|chloroquine|primaquine|artesunate|quinine|naltrexone|naloxone|disulfiram|acamprosate|lithium|phenytoin|carbamazepine|valproate|levodopa|flumazenil|acetazolamide|pilocarpine|neostigmine|physostigmine|oxytocin|vasopressin|desmopressin|propylthiouracil|methimazole|cortisol|aldosterone|melatonin|ghrelin|leptin|somatostatin|gastrin|secretin|cholecystokinin|calcitonin|parathyroid hormone|growth hormone|ADH|ACTH|TSH|FSH|LH|PTH|CCK|IGF-1|GnRH|TRH|CRH|T3|T4)\\b'],
+  // enzymes (italic)
+  ['ital', '\\b(?!(?:base|case|phase|release|increase|decrease|disease|ease|database|purchase|phrase|erase|please|cease|crease|lease|metaphase|prophase|anaphase|telophase|interphase|diphase|biphase|polyphase|chase|abase|appease|vase)\\b)[A-Za-z]{3,}ase\\b'],
+  // emphasis words in capitals
+  ['caps', '\\b(?:NOT|EXCEPT|ONLY|LEAST|NEVER|ALWAYS)\\b']
+];
+const MX_OPT_STOP = /^(?:all|none|both|neither|any|true|false|yes|no|normal|increased|decreased)\b/i;
+function mxTerm(t) {   // the key word(s) of an option: text before a bracket or colon
+  t = String(t || '').split(/\s*[(:]/)[0].replace(/[.\s]+$/, '').trim();
+  return (t.length >= 4 && t.length <= 70 && !MX_OPT_STOP.test(t)) ? t : '';
+}
+const _mxCache = {};
+function mxRegex(extra) {   // extra: [[kind, escaped-term], ...] placed first so they win
+  const key = extra.map(e => e[0] + e[1]).join('~');
+  if (_mxCache[key]) return _mxCache[key];
+  const all = extra.map(e => [e[0], '(?<![A-Za-z0-9])' + e[1].replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(?![A-Za-z0-9])']).concat(MX_PIECES);
+  const rx = { re: new RegExp(all.map(p => '(' + p[1] + ')').join('|'), 'gi'), kinds: all.map(p => p[0]) };
+  if (Object.keys(_mxCache).length > 400) for (const k in _mxCache) delete _mxCache[k];
+  return (_mxCache[key] = rx);
+}
+function mxRich(str, bold, ital) {   // bold: option text to bold (the answer); ital: option text to italicise (a wrong option)
   const s = escapeHtml(str);
   if (!s) return '';
-  return s.replace(MX_RICH_RE, (m, off) => {
-    if (m.startsWith('&quot;')) return '<i class="xi">' + m + '</i>';
-    if (/^(?:[EHSCKPM]\.\s|Staphylococcus|Streptococcus|Escherichia|Klebsiella|Pseudomonas|Mycobacterium|Salmonella|Shigella|Helicobacter|Plasmodium|Candida|Clostridium|Clostridioides|Neisseria|Haemophilus|Vibrio|Treponema|Borrelia|Leptospira|Entamoeba|Giardia|Trichomonas|Chlamydia|Bacillus|Listeria|Legionella|Aspergillus|Cryptococcus|Pneumocystis|Toxoplasma|Schistosoma|Ascaris|Taenia|Brucella|Rickettsia|Corynebacterium|Enterococcus|Proteus|Campylobacter|Bordetella|Yersinia|Cryptosporidium|Leishmania|Trypanosoma|Wuchereria|Strongyloides|Echinococcus)/i.test(m)) return '<i class="xi">' + m + '</i>';
-    if (/^[\s~&lgt;=≤≥]*\d/.test(m) && /^\W*\d/.test(m.replace(/^(&lt;|&gt;)=?/, '')) ) {
-      // plain number: only bold if it carries a unit, a range, a decimal, a comparator or 2+ digits
+  const extra = [];
+  const b = mxTerm(bold), i = mxTerm(ital);
+  if (b) extra.push(['bold', escapeHtml(b)]);
+  if (i) extra.push(['ital', escapeHtml(i)]);
+  const R = mxRegex(extra);
+  return s.replace(R.re, function (m) {
+    let g = -1;
+    for (let k = 1; k < arguments.length - 2; k++) if (arguments[k] !== undefined) { g = k - 1; break; }
+    let kind = R.kinds[g];
+    if (kind === 'caps') { if (m !== m.toUpperCase()) return m; kind = 'bold'; }
+    else if (kind === 'ital_cs' || kind === 'bold_cs') { if (!/^[A-Z]/.test(m)) return m; kind = kind.slice(0, 4); }
+    if (kind === 'ital') return '<i class="xi">' + m + '</i>';
+    if (kind === 'num') {
       const core = m.replace(/^(&lt;|&gt;)=?|^[≤≥~]/, '').trim();
-      if (/^\d$/.test(core) && m === core) return m;
-      return '<b class="xk">' + m + '</b>';
+      if (!/\d/.test(core)) return m;
+      if (/^\d$/.test(core)) return m;
+      const lead = m.match(/^\s*/)[0];
+      return lead + '<b class="xk">' + m.slice(lead.length) + '</b>';
     }
     return '<b class="xk">' + m + '</b>';
   });
@@ -4592,6 +4633,7 @@ const NEWS = [
   { id: 'n40', kind: 'study', date: '25 Nov 2026', title: 'Daily limit is now 750 questions + easier-to-read explanations', body: 'The daily limit is now 750 new questions for every student. Explanations have a bigger font, and definitions, key points, numbers and values are in bold, with organism names in italics, so you can scan them faster. You can still change the text size from the settings button in the quiz.' },
   { id: 'n41', kind: 'study', date: '25 Nov 2026', title: 'Redo incorrect is now grouped by system and topic', body: 'Open Redo incorrect, tap a subject, and your wrong questions are grouped by system and topic with counts, for example Medicine: Cardiology 12, Endocrinology 9. Tap a system or a topic to practise only those. The custom daily goal can now go up to 750.' },
   { id: 'n42', kind: 'content', date: '26 Nov 2026', title: '90 new Second Year questions, with sources', body: 'New questions from the 23LM and 24LM Neuro, Head & Neck, GIT and Endocrine module papers and the 24 April 2025 exam are now in Second Year MBBS, placed under their module, subject and topic. The source line of each new question, and of the 118 existing questions that appear in these papers, now names the paper, the year, the question number and the PDF page.' },
+  { id: 'n43', kind: 'study', date: '26 Nov 2026', title: 'Key words now stand out in every explanation', body: 'In the explanation, the answer itself, drug names, disease names, hormones and numbers with units are now in bold, and organisms, enzymes, named signs and tests and quoted terms are in italics, so the important points catch your eye. This applies to the main app and the free trial.' },
 ];
 function newsSeen() { try { return JSON.parse(lsGet('newsSeen') || 'null'); } catch (e) { return null; } }
 function newsMark() { try { lsSet('newsSeen', JSON.stringify(NEWS.map(n => n.id))); } catch (e) {} }
