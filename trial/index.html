@@ -705,6 +705,7 @@ html[data-theme=dark] .mx-welcome .rank-chip{background:rgba(20,184,166,.15);col
 .pk-list{padding:0 16px 8px;display:grid;gap:10px}
 .pk-card{display:flex;align-items:center;justify-content:space-between;gap:12px;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px 16px;text-align:left;cursor:pointer;color:var(--ink);font:inherit;transition:transform .12s}
 .pk-card:active{transform:scale(.985)}
+.pk-tops{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:6px;margin:-4px 0 6px;padding:0 4px}.pk-top{border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:999px;padding:6px 12px;font-size:13px;cursor:pointer}.pk-top b{margin-left:4px;color:var(--teal)}.pk-top:active{transform:scale(.97)}
 .pk-card.all{background:linear-gradient(135deg,var(--navy),#0F6E56);color:#fff;border:none}
 .pk-t b{display:block;font-size:16px}.pk-t small{display:block;font-size:12px;opacity:.75;margin-top:3px;line-height:1.35}
 .pk-n{min-width:44px;text-align:center;font-weight:800;font-size:18px;background:var(--teal-light);color:var(--teal);border-radius:12px;padding:6px 10px}
@@ -3634,31 +3635,57 @@ function pickerPool(kind) {
   const stats = statsCache || { attempts: {}, flagged: {} };
   return QBANK.filter(q => kind === 'flagged' ? !!stats.flagged[q.id] : (stats.attempts[q.id] && stats.attempts[q.id].lastCorrect === false));
 }
+let pickerSubj = null;
+function pickerGroupHTML(kind, pool, s) {
+  const sub = pool.filter(q => q.subject === s), by = {};
+  for (const q of sub) { const c = qChips(q), sy = c.sys || q.system || 'Other', e = by[sy] || (by[sy] = { n: 0, top: {} }); e.n++; const t = c.topic; if (t) e.top[t] = (e.top[t] || 0) + 1; }
+  const word = kind === 'flagged' ? 'flagged' : 'wrong';
+  let h = `<div class="topbar"><button class="back" id="pkBack">&#8592;</button><div class="brand">${escapeHtml(s)}</div></div>`;
+  h += `<div class="setup-header"><h2>${sub.length} ${word} question${sub.length === 1 ? '' : 's'}</h2><p>Grouped by system and topic. Tap a system or a topic to practise just those questions.</p></div><div class="pk-list">`;
+  h += `<button class="pk-card all" data-pk="${escapeHtml(s)}"><div class="pk-t"><b>All ${escapeHtml(s)}</b><small>${Object.keys(by).length} system${Object.keys(by).length === 1 ? '' : 's'}</small></div><div class="pk-n">${sub.length}</div></button>`;
+  for (const [sy, e] of Object.entries(by).sort((x, y) => y[1].n - x[1].n)) {
+    h += `<button class="pk-card" data-pks="${escapeHtml(s)}" data-pksys="${escapeHtml(sy)}"><div class="pk-t"><b>${escapeHtml(sy)}</b></div><div class="pk-n">${e.n}</div></button>`;
+    const tops = Object.entries(e.top).sort((x, y) => y[1] - x[1]);
+    if (tops.length) h += `<div class="pk-tops">` + tops.map(([t, n]) => `<button class="pk-top" data-pks="${escapeHtml(s)}" data-pksys="${escapeHtml(sy)}" data-pktop="${escapeHtml(t)}">${escapeHtml(t)} <b>${n}</b></button>`).join('') + `</div>`;
+  }
+  return h + `</div>` + tabbarHTML('home');
+}
 function pickerHTML() {
   const kind = pickerKind, pool = pickerPool(kind), by = {};
-  for (const q of pool) { const e = by[q.subject] || (by[q.subject] = { n: 0, sys: {} }); e.n++; e.sys[q.system] = (e.sys[q.system] || 0) + 1; }
+  for (const q of pool) { const e = by[q.subject] || (by[q.subject] = { n: 0, sys: {} }); e.n++; const sy = qChips(q).sys || q.system; e.sys[sy] = (e.sys[sy] || 0) + 1; }
   const subs = Object.keys(MANIFEST).filter(s => by[s]);
+  if (pickerSubj && by[pickerSubj]) return pickerGroupHTML(kind, pool, pickerSubj);
+  pickerSubj = null;
   let h = `<div class="topbar"><button class="back" data-back="home">&#8592;</button><div class="brand">${kind === 'flagged' ? 'Flagged questions' : 'Redo incorrect questions'}</div></div>`;
-  h += `<div class="setup-header"><h2>${kind === 'flagged' ? 'Review flagged' : 'Redo what you got wrong'}</h2><p>Choose a subject to practise. Questions are grouped by subject so you can revise one at a time.</p></div>`;
+  h += `<div class="setup-header"><h2>${kind === 'flagged' ? 'Review flagged' : 'Redo what you got wrong'}</h2><p>Choose a subject. Inside it your questions are grouped by system and topic, so you can see exactly where you went wrong.</p></div>`;
   if (!pool.length) return h + `<div class="empty-state"><div class="ic">${kind === 'flagged' ? '&#9873;' : '&#10003;'}</div><p>${kind === 'flagged' ? 'Nothing flagged yet. Tap the flag on any question to save it here.' : 'No incorrect questions right now. Keep practising!'}</p></div>` + tabbarHTML('home');
   h += `<div class="pk-list">`;
   h += `<button class="pk-card all" data-pk="*"><div class="pk-t"><b>All subjects</b><small>${subs.length} subject${subs.length === 1 ? '' : 's'}</small></div><div class="pk-n">${pool.length}</div></button>`;
   for (const s of subs) {
     const top = Object.entries(by[s].sys).sort((x, y) => y[1] - x[1]).slice(0, 3).map(x => escapeHtml(x[0]) + ' (' + x[1] + ')').join(' &middot; ');
-    h += `<button class="pk-card" data-pk="${escapeHtml(s)}"><div class="pk-t"><b>${escapeHtml(s)}</b><small>${top}</small></div><div class="pk-n">${by[s].n}</div></button>`;
+    h += `<button class="pk-card" data-pksub="${escapeHtml(s)}"><div class="pk-t"><b>${escapeHtml(s)}</b><small>${top}</small></div><div class="pk-n">${by[s].n} &rsaquo;</div></button>`;
   }
   return h + `</div>` + tabbarHTML('home');
 }
 async function attachPickerEvents() {
   mxNavBind();
   const b = document.querySelector('[data-back]'); if (b) b.addEventListener('click', goHome);
-  document.querySelectorAll('[data-pk]').forEach(el => el.addEventListener('click', async () => {
-    const s = el.getAttribute('data-pk'), stats = await getLocalStats();
-    let pool = pickerPool(pickerKind); if (s !== '*') pool = pool.filter(q => q.subject === s);
+  const pb = document.getElementById('pkBack'); if (pb) pb.addEventListener('click', () => { pickerSubj = null; render(); window.scrollTo(0, 0); });
+  document.querySelectorAll('[data-pksub]').forEach(el => el.addEventListener('click', () => { pickerSubj = el.getAttribute('data-pksub'); render(); window.scrollTo(0, 0); }));
+  const go = async (filter, title, subj) => {
+    const stats = await getLocalStats(); let pool = pickerPool(pickerKind).filter(filter);
     if (!pool.length) return;
-    pool = shuffle(pool).slice(0, 40);
+    pool = shuffle(pool).slice(0, 100);
     const label = pickerKind === 'flagged' ? 'Flagged' : 'Redo incorrect';
-    beginSession(pool, { kind: 'block', title: label + (s === '*' ? '' : ' · ' + s), subject: s === '*' ? 'Mixed' : s, mode: 'untimed', reviewMode: 'immediate' }, stats);
+    beginSession(pool, { kind: 'block', title: label + (title ? ' · ' + title : ''), subject: subj, mode: 'untimed', reviewMode: 'immediate' }, stats);
+  };
+  document.querySelectorAll('[data-pk]').forEach(el => el.addEventListener('click', () => {
+    const s = el.getAttribute('data-pk');
+    go(q => s === '*' || q.subject === s, s === '*' ? '' : s, s === '*' ? 'Mixed' : s);
+  }));
+  document.querySelectorAll('[data-pks]').forEach(el => el.addEventListener('click', () => {
+    const s = el.getAttribute('data-pks'), sy = el.getAttribute('data-pksys'), tp = el.getAttribute('data-pktop');
+    go(q => { if (q.subject !== s) return false; const c = qChips(q); if ((c.sys || q.system) !== sy) return false; return tp == null || c.topic === tp; }, tp || sy, s);
   }));
 }
 
@@ -4563,6 +4590,7 @@ const NEWS = [
   { id: 'n38', kind: 'content', date: '20 Nov 2026', title: 'Medicine-I 10 Jan paper checked', body: 'The LUMHS Medicine-I 10 January recall paper has been checked against the Medicine bank. Almost every question in it was already in the app, and the 4 that were missing (pleural exudate test, peptic ulcer pain, cirrhosis with ascites and Fanconi syndrome) have been added with Davidson references.' },
   { id: 'n39', kind: 'content', date: '24 Nov 2026', title: 'Third Year Pathology: 323 new questions', body: 'Third Year Pathology now has 1,439 questions (323 new). It is arranged by your LUMHS module and book chapter: Robbins general pathology in Foundation, then Haematology, Respiratory, CVS, GIT, Endocrine, Renal, Reproductive, Bone and Neuroscience. Inside each chapter the questions are split by topic (for example the Lung: Obstructive diseases, Lung tumors, Pneumonia, TB), so you can practise only the topic you studied. Every question shows its past paper address and the book pages.' },
   { id: 'n40', kind: 'study', date: '25 Nov 2026', title: 'Daily limit is now 750 questions + easier-to-read explanations', body: 'The daily limit is now 750 new questions for every student. Explanations have a bigger font, and definitions, key points, numbers and values are in bold, with organism names in italics, so you can scan them faster. You can still change the text size from the settings button in the quiz.' },
+  { id: 'n41', kind: 'study', date: '25 Nov 2026', title: 'Redo incorrect is now grouped by system and topic', body: 'Open Redo incorrect, tap a subject, and your wrong questions are grouped by system and topic with counts, for example Medicine: Cardiology 12, Endocrinology 9. Tap a system or a topic to practise only those. The custom daily goal can now go up to 750.' },
 ];
 function newsSeen() { try { return JSON.parse(lsGet('newsSeen') || 'null'); } catch (e) { return null; } }
 function newsMark() { try { lsSet('newsSeen', JSON.stringify(NEWS.map(n => n.id))); } catch (e) {} }
@@ -4935,7 +4963,7 @@ function settingsHTML() {
       <label class="mi-f"><span>University / college (optional)</span><input id="miUni" maxlength="60" value="${escapeHtml(lsGet('uni') || '')}" placeholder="Your university"></label>
       <label class="mi-f"><span>Year / class (optional)</span><input id="miYear" maxlength="30" value="${escapeHtml(lsGet('year') || '')}" placeholder="e.g. Final year MBBS"></label>
       <div class="mi-f"><span>Exam date</span><button class="mi-date" id="miExam">&#128197; ${exTxt}</button></div>
-      <div class="mi-f"><span>Daily goal (questions)</span><div class="mi-goals">${[10, 20, 30, 50].map(g => `<button class="mi-g ${g === goal ? 'on' : ''}" data-mi-goal="${g}">${g}</button>`).join('')}</div><div class="mi-goal-custom"><input id="miGoalIn" type="number" inputmode="numeric" min="1" max="500" placeholder="Your own goal" value="${[10, 20, 30, 50].includes(goal) ? '' : goal}" aria-label="Custom daily goal"><small>1 to 500 questions</small></div></div>
+      <div class="mi-f"><span>Daily goal (questions)</span><div class="mi-goals">${[10, 20, 30, 50].map(g => `<button class="mi-g ${g === goal ? 'on' : ''}" data-mi-goal="${g}">${g}</button>`).join('')}</div><div class="mi-goal-custom"><input id="miGoalIn" type="number" inputmode="numeric" min="1" max="750" placeholder="Your own goal" value="${[10, 20, 30, 50].includes(goal) ? '' : goal}" aria-label="Custom daily goal"><small>1 to 750 questions</small></div></div>
       <button class="mi-save" id="miSave">Save changes</button>
       <div class="mxs-sub" style="margin:8px 0 0">Only your name (and score) is visible to others on the Leaderboard. University and year stay on this device.</div></div>
     </div></div>
@@ -4973,7 +5001,7 @@ function attachSettingsEvents() {
   document.getElementById('miExam').addEventListener('click', () => mxCal({ value: lsGet('exam') || '', title: 'Your exam date', onSave: v => { lsSet('exam', v); render(); }, onClear: () => { lsSet('exam', ''); render(); } }));
   document.querySelectorAll('[data-mi-goal]').forEach(b => b.addEventListener('click', () => { lsSet('goal', b.getAttribute('data-mi-goal')); document.querySelectorAll('[data-mi-goal]').forEach(x => x.classList.toggle('on', x === b)); const gi = document.getElementById('miGoalIn'); if (gi) gi.value = ''; }));
   const _gi = document.getElementById('miGoalIn');
-  if (_gi) _gi.addEventListener('change', () => { let v = parseInt(_gi.value, 10); if (!(v >= 1)) { _gi.value = ''; return; } if (v > 500) v = 500; _gi.value = v; lsSet('goal', String(v)); document.querySelectorAll('[data-mi-goal]').forEach(x => x.classList.toggle('on', parseInt(x.getAttribute('data-mi-goal'), 10) === v)); });
+  if (_gi) _gi.addEventListener('change', () => { let v = parseInt(_gi.value, 10); if (!(v >= 1)) { _gi.value = ''; return; } if (v > 750) v = 750; _gi.value = v; lsSet('goal', String(v)); document.querySelectorAll('[data-mi-goal]').forEach(x => x.classList.toggle('on', parseInt(x.getAttribute('data-mi-goal'), 10) === v)); });
   document.getElementById('mxsAwake').addEventListener('change', e => { MXS.awake = e.target.checked; mxsSave(); mxsApply(); });
   document.getElementById('mxsReset').addEventListener('click', () => { MXS = { theme: 'auto', warm: 0, dim: 0, awake: false, fs: 'S', bold: false }; mxsSave(); mxsApply(); render(); });
 }
