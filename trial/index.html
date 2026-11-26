@@ -2328,10 +2328,24 @@ async function accQcStart() {
 // ---- Save everything on the phone so the whole app works with no internet (questions, mock tests, PDFs) ----
 let ACC_PF = { run: false, total: 0, done: 0, fail: '' };
 function accPfCount() { const st = QBANK.filter(q => q.stub && !accTryCache(q)).length; return { left: st, total: QBANK.length }; }
+// ---- Daily limit = questions the student actually ANSWERS today (opening / saving questions does not count) ----
+let ANS_LIM = parseInt(lsGet('anslim') || '750', 10) || 750;
+window.__ansN = 0;
+function ansSetLim(v) { v = parseInt(v, 10); if (v >= 100 && v !== ANS_LIM) { ANS_LIM = v; lsSet('anslim', String(v)); } }
+function ansTodayOf(stats) { const e = mxDaily(stats)[mxDayKey()]; return e ? e.n : 0; }
+function ansPending() { if (!session || !session.answers) return 0; let n = 0; for (const id in session.answers) if (!session.submitted[id] && session.answers[id]) n++; return n; }
+function ansReached(extra) { return !TRIAL && (window.__ansN + ansPending() + (extra || 0)) >= ANS_LIM; }
+function ansLimitScreen() {
+  const app = document.getElementById('app'); if (!app) return;
+  app.innerHTML = `<div class="lock-screen"><div class="logo-wrap" style="margin-top:6px"><div class="logo-card"><img src="${LOGO_URI}" alt="Medixella"></div></div><h2>Daily limit reached</h2><p class="lock-sub">You have answered ${ANS_LIM} questions today, which is the daily limit. It resets at midnight (Pakistan time). You can still read your results, notes and explanations.</p><button class="lock-btn ghost" id="ansBack">Back to home</button></div>`;
+  const b = document.getElementById('ansBack'); if (b) b.addEventListener('click', () => { if (session && !session.finished) { try { saveSession(); } catch (e) {} } goHome(); });
+}
+function ansRefresh() { try { if (statsCache) window.__ansN = ansTodayOf(statsCache); } catch (e) {} }
 async function accQuota() {
   try {
     const auth = await accLoadFb(); const u = auth.currentUser || await accUser(auth); if (!u) return null;
     const r = await accCall('qkeys', { idToken: await u.getIdToken(), deviceId: mxqDeviceId(), ids: [] });
+    if (r && r.state === 'ok' && r.ans) ansSetLim(r.ans);
     return r && r.state === 'ok' && r.limit ? { used: r.used || 0, limit: r.limit } : null;
   } catch (e) { return null; }
 }
@@ -2451,7 +2465,7 @@ function accFailScreen(res, soft) {
   const app = document.getElementById('app'); if (!app) return;
   const back = `<button class="lock-btn ghost" id="accQBack">Back to home</button>`;
   let t = 'Could not load these questions', m = 'Check your internet connection, then try again. Questions you have already opened keep working offline.', retry = true;
-  if (res.reason === 'limit') { t = 'Daily limit reached'; m = `You have opened ${res.limit || 750} new questions today, which is the daily limit. It resets at midnight (Pakistan time). Questions you already opened still work, even offline.`; retry = false; }
+  if (res.reason === 'limit') { t = 'Daily limit reached'; m = `Too many questions were loaded on this account today. It resets at midnight (Pakistan time). Questions you already opened still work, even offline.`; retry = false; }
   app.innerHTML = `<div class="lock-screen"><div class="logo-wrap" style="margin-top:6px"><div class="logo-card"><img src="${LOGO_URI}" alt="Medixella"></div></div><h2>${t}</h2><p class="lock-sub">${m}</p>${retry ? '<button class="lock-btn" id="accQRetry">Try again</button>' : ''}${back}</div>`;
   const b = document.getElementById('accQBack'); if (b) b.addEventListener('click', () => { if (session && !session.finished) { try { saveSession(); } catch (e) {} } goHome(); });
   const r = document.getElementById('accQRetry'); if (r) r.addEventListener('click', () => render());
@@ -2964,6 +2978,8 @@ function currentQuestion() { return session.questions[session.idx]; }
 function pickOption(letter) {
   const q = currentQuestion();
   if (session.submitted[q.id] || session.finished) return;
+  ansRefresh();
+  if (!session.answers[q.id] && ansReached(0)) { ansLimitScreen(); return; }
   session.answers[q.id] = letter;
   saveSession();
   render();
@@ -2972,6 +2988,7 @@ function pickOption(letter) {
 async function submitAnswer() {
   const q = currentQuestion();
   if (!session.answers[q.id]) return;
+  { const _s0 = await getLocalStats(); window.__ansN = ansTodayOf(_s0); if (!TRIAL && window.__ansN >= ANS_LIM) { ansLimitScreen(); return; } }
   session.submitted[q.id] = true;
 
   const stats = await getLocalStats();
@@ -4251,7 +4268,7 @@ function mxDaily(stats) {
   }
   return stats.daily;
 }
-function mxDayAdd(stats, key, n, c) { const d = mxDaily(stats); const e = d[key] || (d[key] = { n: 0, c: 0 }); e.n = Math.max(0, e.n + n); e.c = Math.max(0, e.c + c); }
+function mxDayAdd(stats, key, n, c) { const d = mxDaily(stats); const e = d[key] || (d[key] = { n: 0, c: 0 }); e.n = Math.max(0, e.n + n); e.c = Math.max(0, e.c + c); if (key === mxDayKey()) window.__ansN = e.n; }
 function mxDaySum(stats, days) {
   const d = mxDaily(stats); let n = 0, c = 0;
   if (days === 0) { for (const k in d) { n += d[k].n; c += d[k].c; } return { n, c }; }
