@@ -1025,7 +1025,26 @@ const SRC_PEDS = [
   { id: 'pimm', title: 'Immunization', qs: 27, file: 'Medixella_Paeds_Immunization_OnePage_Sheets.pdf' },
   { id: 'pmisc', title: 'Miscellaneous Topics', qs: 22, file: 'Medixella_Paeds_Miscellaneous_OnePage_Sheets.pdf' }
 ];
-const SRC_ALL = SRC_PDFS.concat(SRC_PEDS);
+const SRC_SURG = [
+  { id: 'su1', title: 'Principles of Surgery', qs: 93, file: 'Medixella_Surgery_Set1_Principles_OnePage_Sheets.pdf' },
+  { id: 'su2', title: 'Tropical, Paediatric Surgery & Peri-operative Care', qs: 96, file: 'Medixella_Surgery_Set2_Tropics_Paeds_Periop_OnePage_Sheets.pdf' },
+  { id: 'su3', title: 'Orthopaedics & Neurosurgery', qs: 59, file: 'Medixella_Surgery_Set3_Ortho_Neurosurgery_OnePage_Sheets.pdf' },
+  { id: 'su4', title: 'Burns, Plastic Surgery & Trauma', qs: 71, file: 'Medixella_Surgery_Set4_Burns_Plastic_Trauma_OnePage_Sheets.pdf' },
+  { id: 'su5', title: 'Skin, Cleft Lip & Palate', qs: 34, file: 'Medixella_Surgery_Set5_Skin_Cleft_OnePage_Sheets.pdf' },
+  { id: 'su6', title: 'Head, Neck, Thyroid & Breast', qs: 149, file: 'Medixella_Surgery_Set6_Head_Neck_Thyroid_Breast_OnePage_Sheets.pdf' },
+  { id: 'su7', title: 'Vascular & Lymphatic', qs: 64, file: 'Medixella_Surgery_Set7_Vascular_Lymphatic_OnePage_Sheets.pdf' },
+  { id: 'su8', title: 'Hernia & Peritoneum', qs: 70, file: 'Medixella_Surgery_Set8_Hernia_Peritoneum_OnePage_Sheets.pdf' },
+  { id: 'su9', title: 'Oesophagus & Stomach', qs: 77, file: 'Medixella_Surgery_Set9_Oesophagus_Stomach_OnePage_Sheets.pdf' },
+  { id: 'su10', title: 'Liver & Spleen', qs: 46, file: 'Medixella_Surgery_Set10_Liver_Spleen_OnePage_Sheets.pdf' },
+  { id: 'su11', title: 'Biliary System & Pancreas', qs: 54, file: 'Medixella_Surgery_Set11_Biliary_Pancreas_OnePage_Sheets.pdf' },
+  { id: 'su12', title: 'Small & Large Intestine', qs: 47, file: 'Medixella_Surgery_Set12_Small_Large_Intestine_OnePage_Sheets.pdf' },
+  { id: 'su13', title: 'Intestinal Obstruction & Appendix', qs: 59, file: 'Medixella_Surgery_Set13_Obstruction_Appendix_OnePage_Sheets.pdf' },
+  { id: 'su14', title: 'Rectum & Anal Canal', qs: 61, file: 'Medixella_Surgery_Set14_Rectum_Anal_Canal_OnePage_Sheets.pdf' },
+  { id: 'su15', title: 'Kidney, Ureter & Bladder', qs: 105, file: 'Medixella_Surgery_Set15_Kidney_Ureter_Bladder_OnePage_Sheets.pdf' },
+  { id: 'su16', title: 'Prostate, Urethra & Penis', qs: 47, file: 'Medixella_Surgery_Set16_Prostate_Urethra_Penis_OnePage_Sheets.pdf' },
+  { id: 'su17', title: 'Testis & Transplantation', qs: 68, file: 'Medixella_Surgery_Set17_Testis_Transplantation_OnePage_Sheets.pdf' }
+];
+const SRC_ALL = SRC_PDFS.concat(SRC_PEDS, SRC_SURG);
 const ANKI_DECKS = [
   { id: 'fcendo', title: 'Endocrinology', file: 'Medixella_HighYield_Endocrinology.apkg', mb: '11 MB' },
   { id: 'fcgit', title: 'Gastroenterology', file: 'Medixella_HighYield_Gastroenterology.apkg', mb: '26 MB' },
@@ -1114,7 +1133,7 @@ async function mxqPdfRead(id) {
   const m = SRC_ALL.find(x => x.id === id), bl = mxqPdfBlob(id); if (!m || !bl) { mxqToast('Log in with your account to open this PDF'); return; }
   const url = URL.createObjectURL(bl);
   const ov = document.createElement('div'); ov.id = 'pdfOv'; ov.className = 'pdf-ov';
-  ov.innerHTML = `<div class="pdf-bar"><button class="pdf-x" id="pdfClose">&#8592; Back</button><span class="pdf-t">${m.grp === 'med' ? 'Irfan Masood based &ndash; ' : 'Paediatrics &ndash; '}${escapeHtml(m.title)}</span><button class="pdf-x" id="pdfFull">Open full screen</button><a class="pdf-x" href="https://medixella.github.io/qbank/" target="_blank" rel="noopener" style="text-decoration:none;margin-left:6px">Website</a></div><iframe class="pdf-fr" src="${url}" title="${escapeHtml(m.title)}"></iframe>`;
+  ov.innerHTML = `<div class="pdf-bar"><button class="pdf-x" id="pdfClose">&#8592; Back</button><span class="pdf-t">${m.grp === 'med' ? 'Irfan Masood based &ndash; ' : (/^su\d/.test(m.id) ? 'Surgery &ndash; ' : 'Paediatrics &ndash; ')}${escapeHtml(m.title)}</span><button class="pdf-x" id="pdfFull">Open full screen</button><a class="pdf-x" href="https://medixella.github.io/qbank/" target="_blank" rel="noopener" style="text-decoration:none;margin-left:6px">Website</a></div><iframe class="pdf-fr" src="${url}" title="${escapeHtml(m.title)}"></iframe>`;
   document.body.appendChild(ov);
   const close = () => { ov.remove(); URL.revokeObjectURL(url); };
   ov.querySelector('#pdfClose').addEventListener('click', close);
@@ -1198,12 +1217,14 @@ function studyHTML() {
 function sourcesHTML() {
   const g = homeGroup, parts = g.split(':');
   const back = `<button class="link-btn" id="grpBack" style="font-size:15px">&#8592; ${parts.length === 1 ? 'Decks' : 'Back'}</button>`;
-  const names = parts[1] === 'paeds' ? ['Rapid Revision Sheets', 'Paediatrics'] : ['Rapid Revision Sheets', 'Medicine', 'One page sheet summaries'];
+  const names = parts[1] === 'paeds' ? ['Rapid Revision Sheets', 'Paediatrics'] : parts[1] === 'surgery' ? ['Rapid Revision Sheets', 'Surgery'] : ['Rapid Revision Sheets', 'Medicine', 'One page sheet summaries'];
   const crumb = names.slice(0, parts.length).join(' &rsaquo; ');
   let h = `<div class="section" style="display:flex;align-items:center;gap:10px">${back}<div class="section-title" style="margin:0">${crumb}</div></div>`;
   const card = (p, sub) => `<div class="pdf-card"><div class="pdf-ic">PDF</div><div class="pdf-tx"><h3>${p.grp === 'med' ? 'Irfan Masood based &ndash; ' : ''}${escapeHtml(p.title)}</h3><p>${sub}</p></div><div class="pdf-btns"><button class="pdf-b read" data-pdf-read="${p.id}">Read online</button><button class="pdf-b dl" data-pdf-dl="${p.id}">Download PDF</button></div></div>`;
   if (parts.length === 1) {
-    h += `<div class="deck-list"><button class="deck-card med" data-group="sources:medicine"><div class="deck-ic">&#9877;</div><div class="deck-tx"><h3>Medicine</h3><p>Rapid revision sheets for final-year Medicine</p><span>${SRC_PDFS.length} PDFs</span></div><div class="deck-go">&#8250;</div></button><button class="deck-card extra" data-group="sources:paeds"><div class="deck-ic">&#128118;</div><div class="deck-tx"><h3>Paediatrics</h3><p>Rapid revision sheets for final-year Paediatrics</p><span>${SRC_PEDS.length} PDFs</span></div><div class="deck-go">&#8250;</div></button></div>`;
+    h += `<div class="deck-list"><button class="deck-card med" data-group="sources:medicine"><div class="deck-ic">&#9877;</div><div class="deck-tx"><h3>Medicine</h3><p>Rapid revision sheets for final-year Medicine</p><span>${SRC_PDFS.length} PDFs</span></div><div class="deck-go">&#8250;</div></button><button class="deck-card extra" data-group="sources:paeds"><div class="deck-ic">&#128118;</div><div class="deck-tx"><h3>Paediatrics</h3><p>Rapid revision sheets for final-year Paediatrics</p><span>${SRC_PEDS.length} PDFs</span></div><div class="deck-go">&#8250;</div></button><button class="deck-card extra" data-group="sources:surgery"><div class="deck-ic">&#129658;</div><div class="deck-tx"><h3>Surgery</h3><p>Rapid revision sheets for final-year Surgery</p><span>${SRC_SURG.length} PDFs</span></div><div class="deck-go">&#8250;</div></button></div>`;
+  } else if (parts[1] === 'surgery') {
+    h += `<div class="pdf-list">` + SRC_SURG.map(p => card(p, 'One page sheets &middot; Surgery &middot; ' + p.qs + ' past-paper questions')).join('') + `</div>`;
   } else if (parts[1] === 'paeds') {
     h += `<div class="pdf-list">` + SRC_PEDS.map(p => card(p, 'One page sheets &middot; Paediatrics &middot; ' + p.qs + ' past-paper questions')).join('') + `</div>`;
   } else if (parts.length === 2) {
